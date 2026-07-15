@@ -94,9 +94,15 @@ export const SOFT_SUMMER_DEMO_RECORD: PersonalColorRecord = {
   result: SOFT_SUMMER_DEMO_RESULT,
 };
 
+// 데모 결과는 명시적 데모 모드 배포에서만 사용한다(FR-001). 일반 배포는 신규 사용자를 미진단 상태로 시작시킨다.
+export function isDemoModeEnabled(): boolean {
+  return import.meta.env.VITE_DEMO_MODE === 'true';
+}
+
 export function getInitialPersonalColorState(
   storedResult: FinalResult | null,
   storedHistory: PersonalColorRecord[],
+  demoModeEnabled: boolean = isDemoModeEnabled(),
 ): { result: FinalResult | null; history: PersonalColorRecord[] } {
   if (storedResult) {
     return {
@@ -108,6 +114,10 @@ export function getInitialPersonalColorState(
         result: storedResult,
       }],
     };
+  }
+
+  if (!demoModeEnabled) {
+    return { result: null, history: storedHistory };
   }
 
   return {
