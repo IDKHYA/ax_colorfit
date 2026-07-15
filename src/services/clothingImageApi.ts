@@ -1,6 +1,13 @@
 // 의류 이미지 업로드 전처리와 배경 제거 API 호출을 담당합니다.
 import type { BackgroundRemoveResult } from '../wardrobeTypes';
 
+// ML(누끼·정밀 추출) API 기준 URL 경계(FR-042). 미설정 시 기존과 동일한 같은 출처 상대 경로를 쓴다.
+// URL/이미지 수집(/api/ingest/*)은 Vercel 경량 API 책임이라 이 경계 대상이 아니다.
+function mlApiUrl(path: string): string {
+  const base = import.meta.env.VITE_ML_API_BASE_URL;
+  return base ? `${base}${path}` : path;
+}
+
 export interface UrlIngestApiResult {
   kind: 'image' | 'html';
   sourceType: 'url';
@@ -42,7 +49,7 @@ export async function getApiHealth(timeoutMs = 2500): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch('/api/health', { signal: controller.signal });
+    const response = await fetch(mlApiUrl('/api/health'), { signal: controller.signal });
     clearTimeout(timer);
     return response.ok;
   } catch {
@@ -53,7 +60,7 @@ export async function getApiHealth(timeoutMs = 2500): Promise<boolean> {
 export async function requestBackgroundRemoval(blob: Blob, fileName = 'clothing.jpg') {
   const formData = new FormData();
   formData.append('file', blob, fileName);
-  const response = await fetch('/api/background/remove', { method: 'POST', body: formData });
+  const response = await fetch(mlApiUrl('/api/background/remove'), { method: 'POST', body: formData });
   if (!response.ok) throw new Error((await readErrorDetail(response)) || `누끼 API 오류: ${response.status}`);
   return response.json() as Promise<BackgroundRemoveResult>;
 }
@@ -62,7 +69,7 @@ export async function requestPrecisionExtraction(blob: Blob, targetPart: string,
   const formData = new FormData();
   formData.append('file', blob, fileName);
   formData.append('targetPart', targetPart);
-  const response = await fetch('/api/clothing/extract', { method: 'POST', body: formData });
+  const response = await fetch(mlApiUrl('/api/clothing/extract'), { method: 'POST', body: formData });
   if (!response.ok) throw new Error((await readErrorDetail(response)) || `정밀 누끼 API 오류: ${response.status}`);
   return response.json() as Promise<BackgroundRemoveResult>;
 }
