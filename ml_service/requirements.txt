@@ -1,0 +1,7 @@
+# 독립 ML 서비스 전용 의존성. server/(URL 수집 API)와 별도로 이 서비스만 설치하면 실행할 수 있다.
+fastapi
+uvicorn[standard]
+python-multipart
+rembg
+pillow
+numpy
