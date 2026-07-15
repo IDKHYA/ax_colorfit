@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from .ml_bridge import load_legacy_image_router
 from .url_ingest import (
     DnsResolver,
     HttpxUrlFetcher,
@@ -20,6 +19,13 @@ from .url_ingest import (
     resolve_hostname,
 )
 
+
+# 실제 ML(누끼·정밀 추출) 서비스 복구는 FRD 단계 2 대상이다. 이번 단계는 부모 저장소 경로 의존을
+# 완전히 제거하는 데 한정하므로, 로컬 서버도 Vercel 서버리스 엔트리와 동일하게 명확한 503으로 안내한다.
+ML_UNAVAILABLE_DETAIL = (
+    "이 배포에는 AI 이미지 분석 서버가 포함되어 있지 않습니다. "
+    "색상과 분류를 직접 입력해 주세요. 누끼와 자동 분석은 독립 ML 서비스 연결 후 쓸 수 있습니다."
+)
 
 app = FastAPI(title="Personal Color Wardrobe v2 API")
 
@@ -79,8 +85,7 @@ async def post_ingest_image(
     return Response(content=image.body, media_type=image.content_type)
 
 
-# 수동 등록 누끼·정밀 추출은 v1 이미지 서버 라우트를 그대로 재사용합니다(같은 8001 포트 한 프로세스).
-# v2 라우트 뒤에 등록해 /api/health 같은 중복 경로는 v2 정의가 우선하게 합니다.
-_legacy_image_router = load_legacy_image_router()
-if _legacy_image_router is not None:
-    app.include_router(_legacy_image_router)
+@app.post("/api/background/remove")
+@app.post("/api/clothing/extract")
+async def ml_unavailable() -> None:
+    raise HTTPException(status_code=503, detail=ML_UNAVAILABLE_DETAIL)
