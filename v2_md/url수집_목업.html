@@ -1,0 +1,386 @@
+<!-- URL·인터넷 이미지 옷장 수집 기능의 구현 전 화면 목업. 4개 상태(입력/분석 중/초안 확인/실패 폴백)와 구현 메모를 담는다. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>URL 수집 목업 — 퍼컬 옷장 v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    background: #eef1f5;
+    color: #1c2430;
+    line-height: 1.55;
+    padding: 28px 16px 80px;
+  }
+  .page { max-width: 880px; margin: 0 auto; display: grid; gap: 18px; }
+
+  header.doc-head { display: grid; gap: 6px; }
+  header.doc-head h1 { font-size: 22px; }
+  header.doc-head p { color: #5b6572; font-size: 14px; }
+  .doc-badge {
+    display: inline-block; width: fit-content; padding: 3px 10px; border-radius: 999px;
+    background: #111827; color: #fff; font-size: 11px; letter-spacing: 0.04em;
+  }
+
+  /* 상태 흐름 스트립 */
+  .flow-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+  .flow-strip b {
+    padding: 7px 12px; border-radius: 10px; background: #fff; border: 1px solid #dbe1ea; font-weight: 600;
+  }
+  .flow-strip b.alt { background: #fdf1f1; border-color: #eecccc; color: #8c3a3a; }
+  .flow-strip i { color: #98a2b3; font-style: normal; }
+
+  /* 탭 */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs button {
+    appearance: none; border: 1px solid #d5dbe4; background: #fff; border-radius: 999px;
+    padding: 8px 16px; font-size: 13px; font-weight: 600; color: #4b5563; cursor: pointer;
+  }
+  .tabs button.active { background: #111827; border-color: #111827; color: #fff; }
+
+  .screen { display: none; }
+  .screen.active { display: grid; gap: 14px; }
+
+  /* 앱 프레임 */
+  .frame {
+    background: #f7f9fb; border: 1px solid #d9dfe8; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 18px 40px rgba(23, 32, 48, 0.10);
+  }
+  .frame-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: #fff; border-bottom: 1px solid #e7ebf1; font-size: 12px; color: #6a7484;
+  }
+  .frame-bar i { width: 9px; height: 9px; border-radius: 999px; background: #d7dde6; }
+  .frame-body { padding: 22px; display: grid; gap: 16px; }
+
+  .frame h2 { font-size: 17px; }
+  .frame h3 { font-size: 13.5px; margin-bottom: 8px; }
+  .muted { color: #6a7484; font-size: 13px; }
+  .card { background: #fff; border: 1px solid #e3e8ef; border-radius: 14px; padding: 16px; }
+
+  /* 추가 방법 탭 (화면 1) */
+  .method-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .method-tabs span {
+    padding: 8px 14px; border-radius: 10px; border: 1px solid #e0e5ec; background: #fff;
+    font-size: 13px; color: #6a7484;
+  }
+  .method-tabs span.on { background: #111827; color: #fff; border-color: #111827; font-weight: 700; }
+  .method-tabs span.on::after { content: ' · NEW'; font-size: 10px; color: #9fe3c2; }
+
+  .url-input-row { display: flex; gap: 8px; }
+  .url-input-row input {
+    flex: 1; padding: 12px 14px; border-radius: 12px; border: 1px solid #d5dbe4; font-size: 13.5px;
+    background: #fff; color: #1c2430;
+  }
+  .url-input-row button {
+    padding: 12px 20px; border-radius: 12px; border: 0; background: #111827; color: #fff;
+    font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .example-chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+  .example-chips span { padding: 5px 10px; border-radius: 999px; background: #eef2f7; color: #5b6572; }
+
+  /* 분석 중 (화면 2) */
+  .progress-steps { display: grid; gap: 10px; }
+  .pstep { display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+  .pstep i {
+    width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center;
+    font-size: 12px; font-style: normal; font-weight: 700; flex: none;
+  }
+  .pstep.done i { background: #111827; color: #fff; }
+  .pstep.now i { background: #fff; border: 2px solid #111827; color: #111827; }
+  .pstep.wait i { background: #eef2f7; color: #98a2b3; }
+  .pstep.now b { color: #111827; }
+  .pstep.wait { color: #98a2b3; }
+  .pstep small { margin-left: auto; color: #98a2b3; font-size: 11.5px; }
+  .pulse-bar { height: 6px; border-radius: 999px; background: #e8edf3; overflow: hidden; position: relative; }
+  .pulse-bar::after {
+    content: ''; position: absolute; inset: 0; width: 45%; border-radius: 999px;
+    background: #111827; animation: slide 1.6s ease-in-out infinite;
+  }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+
+  /* 초안 확인 (화면 3) */
+  .draft-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; }
+  .cutout-box {
+    display: grid; gap: 8px;
+  }
+  .cutout {
+    aspect-ratio: 3 / 4; border-radius: 14px; border: 1px dashed #c3cbd7;
+    background:
+      linear-gradient(45deg, #f0f3f7 25%, transparent 25%, transparent 75%, #f0f3f7 75%),
+      linear-gradient(45deg, #f0f3f7 25%, #fff 25%, #fff 75%, #f0f3f7 75%);
+    background-size: 22px 22px; background-position: 0 0, 11px 11px;
+    display: grid; place-items: center;
+  }
+  .shirt-shape {
+    width: 62%; height: 60%; border-radius: 18px 18px 26px 26px; background: #5d7ba8; position: relative;
+  }
+  .shirt-shape::before, .shirt-shape::after {
+    content: ''; position: absolute; top: 6px; width: 30%; height: 58%;
+    background: #5d7ba8; border-radius: 12px;
+  }
+  .shirt-shape::before { left: -22%; transform: rotate(14deg); }
+  .shirt-shape::after { right: -22%; transform: rotate(-14deg); }
+  .source-line { font-size: 11.5px; color: #6a7484; word-break: break-all; }
+  .source-line b { color: #1c2430; }
+
+  .draft-fields { display: grid; gap: 10px; }
+  .dfield {
+    display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e3e8ef;
+    border-radius: 12px; padding: 10px 14px; font-size: 13.5px;
+  }
+  .dfield label { width: 74px; color: #6a7484; font-size: 12px; flex: none; }
+  .dfield b { font-weight: 700; }
+  .badge-draft {
+    margin-left: auto; padding: 3px 9px; border-radius: 999px; background: #fff7e8;
+    border: 1px solid #f2dcae; color: #8a6516; font-size: 10.5px; font-weight: 700; flex: none;
+  }
+  .badge-signal { padding: 3px 9px; border-radius: 999px; background: #eef2f7; color: #5b6572; font-size: 10.5px; flex: none; }
+  .dfield .swatches { display: flex; gap: 6px; }
+  .dfield .swatches i { width: 22px; height: 22px; border-radius: 7px; border: 1px solid rgba(17,24,39,.14); }
+  .link-like { color: #2456c4; font-size: 12.5px; text-decoration: underline; cursor: pointer; }
+
+  .warmth-scale { display: flex; gap: 5px; }
+  .warmth-scale i {
+    width: 34px; height: 10px; border-radius: 999px; background: #e8edf3;
+  }
+  .warmth-scale i.on { background: #111827; }
+
+  .confirm-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .confirm-row .primary {
+    padding: 12px 22px; border-radius: 12px; border: 0; background: #111827; color: #fff;
+    font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .confirm-row .ghost {
+    padding: 12px 18px; border-radius: 12px; border: 1px solid #d5dbe4; background: #fff;
+    color: #374151; font-size: 14px; cursor: pointer;
+  }
+  .principle-note {
+    font-size: 12.5px; color: #6a7484; background: #f2f5f9; border-radius: 10px; padding: 10px 14px;
+  }
+  .principle-note b { color: #1c2430; }
+
+  /* 실패 폴백 (화면 4) */
+  .fail-head { display: flex; align-items: center; gap: 12px; }
+  .fail-head i {
+    width: 38px; height: 38px; border-radius: 12px; background: #fdf1f1; border: 1px solid #eecccc;
+    display: grid; place-items: center; font-style: normal; font-size: 17px; flex: none;
+  }
+  .fallback-steps { display: grid; gap: 12px; }
+  .fallback-steps .card { display: grid; gap: 8px; }
+  .fallback-steps .card small { color: #98a2b3; font-size: 11px; font-weight: 700; letter-spacing: .05em; }
+
+  /* 구현 메모 */
+  .impl-note { background: #101827; color: #dbe3ef; border-radius: 14px; padding: 16px 18px; font-size: 12.5px; }
+  .impl-note h4 { font-size: 12px; color: #93a6c4; margin-bottom: 8px; letter-spacing: .05em; }
+  .impl-note ul { margin-left: 16px; display: grid; gap: 5px; }
+  .impl-note code { background: rgba(255,255,255,.12); padding: 1px 6px; border-radius: 6px; font-size: 11.5px; }
+
+  footer.doc-foot { font-size: 12.5px; color: #6a7484; border-top: 1px solid #dbe1ea; padding-top: 14px; }
+  footer.doc-foot b { color: #1c2430; }
+
+  @media (max-width: 720px) {
+    .draft-layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="doc-head">
+    <span class="doc-badge">구현 전 목업 · 2026-07-03</span>
+    <h1>URL·인터넷 이미지 옷장 수집 — 화면 목업</h1>
+    <p>쇼핑몰 상품 주소나 옷 이미지 주소를 붙여넣으면 옷장에 초안 아이템으로 들어오는 흐름. 자동 인식은 초안이고 사용자 확정이 최종 권한이다. 시연 크리티컬 패스 밖의 부가 경로다.</p>
+  </header>
+
+  <div class="flow-strip">
+    <b>1 주소 입력</b><i>→</i>
+    <b>2 분석 중</b><i>→</i>
+    <b>3 초안 확인·수정</b><i>→</i>
+    <b>확정 저장 → 옷장</b>
+    <i style="margin:0 4px">|</i>
+    <b class="alt">실패 → 폴백</b>
+  </div>
+
+  <nav class="tabs">
+    <button class="active" data-screen="s1">1 · 진입과 입력</button>
+    <button data-screen="s2">2 · 분석 중</button>
+    <button data-screen="s3">3 · 초안 확인 (핵심)</button>
+    <button data-screen="s4">4 · 실패 폴백</button>
+  </nav>
+
+  <!-- 화면 1 : 진입과 입력 -->
+  <section class="screen active" id="s1">
+    <div class="frame">
+      <div class="frame-bar"><i></i><i></i><i></i> 옷장 → 나만의 옷 추가</div>
+      <div class="frame-body">
+        <h2>나만의 옷 추가</h2>
+        <div class="method-tabs">
+          <span>사진 업로드</span>
+          <span>직접 입력</span>
+          <span class="on">URL로 가져오기</span>
+        </div>
+        <div class="card">
+          <h3>쇼핑몰 주소나 옷 이미지 주소를 붙여넣으세요</h3>
+          <p class="muted" style="margin-bottom:12px">상품 페이지면 대표 이미지를 자동으로 찾고, 이미지 주소면 바로 분석합니다.</p>
+          <div class="url-input-row">
+            <input value="https://shop.example.com/products/oxford-shirt-1024" readonly />
+            <button>가져오기</button>
+          </div>
+          <div class="example-chips" style="margin-top:10px">
+            <span>무신사 상품 페이지</span>
+            <span>29cm 상품 페이지</span>
+            <span>이미지 주소 (.jpg/.png)</span>
+          </div>
+        </div>
+        <p class="principle-note">붙여넣은 주소의 이미지는 <b>내 브라우저에만 저장</b>되고 어디에도 재배포되지 않습니다.</p>
+      </div>
+    </div>
+    <div class="impl-note">
+      <h4>구현 메모 — 화면 1</h4>
+      <ul>
+        <li>기존 "나만의 옷 추가" 화면에 세 번째 탭으로 추가. 새 화면을 만들지 않는다.</li>
+        <li>가져오기 클릭 → <code>POST /api/ingest/url</code> 단일 엔드포인트 (v2 FastAPI).</li>
+        <li>서버 SSRF 가드 — http/https만, 사설 IP 대역 차단, 리다이렉트·응답 크기 제한.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 화면 2 : 분석 중 -->
+  <section class="screen" id="s2">
+    <div class="frame">
+      <div class="frame-bar"><i></i><i></i><i></i> 옷장 → 나만의 옷 추가 → URL 분석</div>
+      <div class="frame-body">
+        <h2>옷을 가져오는 중이에요</h2>
+        <div class="pulse-bar"></div>
+        <div class="card progress-steps">
+          <div class="pstep done"><i>✓</i><b>페이지 가져오기</b><small>0.8s</small></div>
+          <div class="pstep done"><i>✓</i><b>대표 이미지 찾기</b><small>og:image에서 발견</small></div>
+          <div class="pstep now"><i>3</i><b>배경 제거</b><small>진행 중…</small></div>
+          <div class="pstep wait"><i>4</i><b>색상 추출</b></div>
+          <div class="pstep wait"><i>5</i><b>초안 작성</b></div>
+        </div>
+        <p class="muted">상품명도 함께 읽었어요 — "무지 옥스포드 셔츠"는 종류 인식에 활용됩니다.</p>
+      </div>
+    </div>
+    <div class="impl-note">
+      <h4>구현 메모 — 화면 2</h4>
+      <ul>
+        <li>이미지 탐색 3단 폴백 — <code>og:image</code> → <code>JSON-LD(schema.org/Product)</code> → 최대 이미지 휴리스틱. <b>사이트별 스크래퍼는 만들지 않는다.</b></li>
+        <li>상품명 텍스트(og:title / JSON-LD name)는 기존 <code>clothingMeta</code> 이름 신호와 <code>warmthDerivation</code> typeLabel 규칙으로 흘려보낸다.</li>
+        <li>단계 상태는 서버 응답 한 번으로 받아도 되고(단순), SSE로 흘려도 된다(선택). 1차는 단순 응답.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 화면 3 : 초안 확인 -->
+  <section class="screen" id="s3">
+    <div class="frame">
+      <div class="frame-bar"><i></i><i></i><i></i> 옷장 → 나만의 옷 추가 → 분석 완료</div>
+      <div class="frame-body">
+        <h2>이 옷이 맞는지 확인해 주세요</h2>
+        <div class="draft-layout">
+          <div class="cutout-box">
+            <div class="cutout"><div class="shirt-shape"></div></div>
+            <p class="source-line"><b>출처</b> shop.example.com/products/oxford-shirt-1024</p>
+            <p class="source-line"><b>상품명</b> 무지 옥스포드 셔츠 (라이트 블루)</p>
+          </div>
+          <div class="draft-fields">
+            <div class="dfield"><label>카테고리</label><b>상의</b><span class="badge-signal">이미지 인식</span><span class="badge-draft">초안</span></div>
+            <div class="dfield"><label>종류</label><b>셔츠</b><span class="badge-signal">상품명 신호</span><span class="badge-draft">초안</span></div>
+            <div class="dfield">
+              <label>대표색</label>
+              <span class="swatches">
+                <i style="background:#5d7ba8"></i>
+                <i style="background:#8fa6c4"></i>
+                <i style="background:#e9edf3"></i>
+              </span>
+              <span class="link-like">색상 분석 보기</span>
+              <span class="badge-draft">초안</span>
+            </div>
+            <div class="dfield">
+              <label>보온 등급</label>
+              <span class="warmth-scale"><i></i><i></i><i class="on"></i><i></i><i></i></span>
+              <b style="font-size:12px">mid</b>
+              <span class="badge-signal">종류 파생</span><span class="badge-draft">초안</span>
+            </div>
+            <div class="dfield"><label>패턴</label><b>단색</b><span class="badge-draft">초안</span></div>
+            <div class="dfield"><label>데님</label><b>아님</b><span class="badge-signal">상품명·색 교차</span><span class="badge-draft">초안</span></div>
+          </div>
+        </div>
+        <div class="confirm-row">
+          <button class="primary">이대로 옷장에 저장</button>
+          <button class="ghost">직접 수정하기</button>
+        </div>
+        <p class="principle-note"><b>모든 값은 초안입니다.</b> 저장을 누르는 순간 사용자 확정값이 되고, 이후 자동 인식이 이 값을 덮어쓰지 않습니다.</p>
+      </div>
+    </div>
+    <div class="impl-note">
+      <h4>구현 메모 — 화면 3 (핵심)</h4>
+      <ul>
+        <li>"색상 분석 보기" → 지금 옷장에서 쓰는 <code>ColorInsightModal</code>을 그대로 연다. sourceLabel만 "URL 분석 완료 화면"으로 바뀐다 (이미 props로 지원).</li>
+        <li>저장 시 스키마 — <code>sourceType: 'url'</code>, <code>sourceRef: 원본 URL</code>, <code>analysis.status: 'draft' → 'confirmed'</code>. 전부 기존 필드.</li>
+        <li>병합 경로는 하나 — 기존 수동 등록과 같은 저장 함수를 태운다. URL 전용 저장 로직을 만들지 않는다.</li>
+        <li>이미지는 <code>imageStore</code>(IndexedDB)로 로컬 저장. 재배포 없음.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 화면 4 : 실패 폴백 -->
+  <section class="screen" id="s4">
+    <div class="frame">
+      <div class="frame-bar"><i></i><i></i><i></i> 옷장 → 나만의 옷 추가 → URL 분석</div>
+      <div class="frame-body">
+        <div class="fail-head">
+          <i>!</i>
+          <div>
+            <h2>이 페이지에서 옷 이미지를 찾지 못했어요</h2>
+            <p class="muted">로그인해야 보이는 페이지거나, 이미지가 스크립트로만 로드되는 사이트일 수 있어요.</p>
+          </div>
+        </div>
+        <div class="fallback-steps">
+          <div class="card">
+            <small>방법 1</small>
+            <h3>옷 이미지 주소를 직접 붙여넣기</h3>
+            <p class="muted">상품 사진에서 마우스 오른쪽 클릭 → "이미지 주소 복사"</p>
+            <div class="url-input-row">
+              <input placeholder="https://…/product_image.jpg" readonly />
+              <button>이미지로 분석</button>
+            </div>
+          </div>
+          <div class="card">
+            <small>방법 2</small>
+            <h3>사진 업로드로 전환</h3>
+            <p class="muted">저장해 둔 상품 이미지를 직접 올려도 같은 분석을 거칩니다.</p>
+            <div class="confirm-row"><button class="ghost">사진 업로드 탭으로 이동</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="impl-note">
+      <h4>구현 메모 — 화면 4</h4>
+      <ul>
+        <li>실패는 오류가 아니라 <b>정상 시나리오</b>다. 에러 코드가 아니라 다음 행동을 안내한다.</li>
+        <li>이미지 주소 직접 입력은 화면 1과 같은 엔드포인트로 — Content-Type이 이미지면 파싱 단계를 건너뛴다.</li>
+        <li>시연에서는 사전 검증한 URL 2~3개만 쓴다. 골든 패스는 네트워크 없이 완주된다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="doc-foot">
+    <b>구현 순서 제안</b> — ① 서버 프록시(+SSRF 가드) ② 화면 1·3 UI와 초안→확정 저장 ③ 파싱 3단 폴백 ④ 누끼·색 추출 연동 ⑤ 화면 2·4 상태 처리. 각 단계는 저장된 HTML 픽스처로 오프라인 테스트한다.
+  </footer>
+</div>
+<script>
+  document.querySelectorAll('.tabs button').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.tabs button').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+      button.classList.add('active');
+      document.getElementById(button.dataset.screen).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

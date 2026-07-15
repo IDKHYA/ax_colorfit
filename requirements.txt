@@ -1,0 +1,3 @@
+# Vercel 수집 API 함수(api/index.py)가 설치하는 최소 의존성. 로컬 ML 서버 의존성은 루트 server/requirements.txt에 있다.
+fastapi
+httpx

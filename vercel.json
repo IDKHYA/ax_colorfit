@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "excludeFiles": "{node_modules,dist,public,catalog,docs,src,components,lib}/**"
+    }
+  }
+}
