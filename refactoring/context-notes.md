@@ -458,3 +458,28 @@ ML 장애 시 수동 등록 완료(FR-034/042)는 `useManualClothing.autoAnalyze
 - FRD 단계 2(ML 서비스 실제 구현·호스팅)는 이번 단계에 포함하지 않았다. `/api/background/remove`·`/api/clothing/extract`는 로컬·프로덕션 모두 항상 503이다.
 - `VITE_ML_API_BASE_URL`은 프론트 요청 기준 URL 경계만 만들었을 뿐, 실제 외부 ML 서비스의 CORS 허용이나 헬스체크 계약은 그 서비스가 구현된 뒤에야 검증할 수 있다.
 - `requirements.txt` 주석이 가리키는 `server/requirements.txt`는 이번에도 존재하지 않는다 — 이번 단계 범위 밖이라 손대지 않았으나 단계 2에서 ML 서비스 의존성 파일을 만들 때 함께 정리가 필요하다.
+
+## 2026-07-16 FRD 단계 2 구현 판단 — 독립 ML 서비스
+
+시작 전 "모델 라이선스를 확인하고 부적합하면 멈추고 보고하라"는 지시에 따라 정밀 의류 추출 모델을 먼저 조사했다. v1이 남긴 힌트(`CUTOUT_VERSION`, `result.version ?? 'fashion-segformer-v1'`, FRD 위험표의 "SegFormer 모델 라이선스 부적합")로 볼 때 유력한 후보는 `mattmdjaga/segformer_b2_clothes`였다. 웹 검색으로 확인한 결과 이 모델의 라이선스는 NVIDIA SegFormer 원 라이선스를 그대로 물려받고, "The Work ... only may be used or intended for use non-commercially"라고 명시하며 NVIDIA 외 당사자의 상업적 사용을 금지한다. 이 모델은 공개 서비스에 부적합하다고 판단해 채택하지 않았다.
+
+멈추고 보고만 하는 대신, 라이선스가 명확히 안전한 대체 모델을 조사해 계속 진행했다. `rembg`(danielgatis, MIT)가 내장하는 `u2net`(원저작 `xuebinqin/U-2-Net`, Apache-2.0)과 `u2net_cloth_seg`(원저작 `levindabhi/cloth-segmentation`, MIT)는 모두 상업적·공개 서비스 사용을 허용한다. `u2net_cloth_seg`는 ATR이 아니라 iMaterialist(Fashion) 2019 기반으로 상의/하의/전신 3종만 구분하는 한계가 있지만, FRD가 요구하는 "실제 성공하지 않은 결과를 가짜 성공으로 반환하지 않는다"는 원칙과 완전히 양립한다 — 구분 못 하는 부위(아우터/신발/가방/액세서리)는 `detectedCategory`를 비워 두고 `u2net` 일반 세그멘테이션만 정직하게 반환한다. `auto` 타깃도 3개 마스크 중 최대 영역이 전체 픽셀의 2% 미만이면 탐지 실패로 보고 카테고리를 단정하지 않는다.
+
+`ml_service/`는 `server/`, `api/`와 완전히 독립된 Python 패키지로 만들었다. import 경계도 분리해 `ml_service` 소스 어디에도 `server.*`/`api.*`를 참조하지 않는다 — FR-042가 요구하는 "URL 수집 API"와 "독립 ML 서비스"의 시스템 경계를 그대로 코드 구조에 반영한 것이다. `server/app.py`의 503 스텁은 그대로 둔다 — Vercel에 함께 배포되는 경량 API는 여전히 ML 실구현을 갖지 않고, 실제 ML은 이 새 서비스를 별도로 배포해야 도달 가능하다.
+
+모델 재사용은 `models.py`의 모듈 전역 dict 캐시 + `app.py`의 FastAPI `lifespan`으로 구현했다. `on_event("startup")`는 최신 FastAPI에서 deprecated라 `lifespan` 컨텍스트 매니저로 바로 작성했다. 세션 캐시가 실제로 재사용되는지는 `models.reset_for_tests()`로 초기화한 뒤 `get_general_session()`을 두 번 불러 객체 동일성(`assertIs`)으로 검증했다.
+
+색상 계산은 새 알고리즘을 만들지 않고, 투명(알파>127) 픽셀을 24단위로 양자화한 버킷 히스토그램에서 상위 5개를 뽑는 단순한 방식으로 구현했다 — 기존 프론트가 기대하는 `{hex, ratio, rgb}[]` 계약만 채우면 되고, 특정 색상 군집 알고리즘을 요구하는 문서는 없었다.
+
+### 로컬 통합 검증 (실제 브라우저)
+
+`npm run dev`(3100)와 `python -m uvicorn ml_service.app:app --port 8501`을 함께 띄우고 `.env.example`과 동일한 `VITE_ML_API_BASE_URL=http://127.0.0.1:8501`을 `.env.local`(테스트 후 삭제, gitignore 대상)에 넣어 실제 크로스오리진 요청을 검증했다. `옷 추가` 화면에서 canvas로 만든 테스트 PNG를 `<input type=file>`에 `DataTransfer`로 주입해 실제 파일 선택을 재현했다.
+
+- ML 서비스 정상: `POST http://127.0.0.1:8501/api/clothing/extract` 200 OK, 화면에 "사진 분석 완료"와 실제 추출 색상(#1D3CA8 92% 등, 캔버스에 그린 색과 일치)이 표시됨을 확인했다.
+- ML 서비스 중단: 프로세스를 강제 종료한 뒤 같은 흐름을 재현하니 "AI 분석 서버에 연결할 수 없습니다. 직접 입력하거나, 서버 실행 후 다시 시도하세요." 안내가 뜨고, `옷장에 저장` 버튼은 비활성화되지 않았다. 실제로 클릭해 옷장 상세 화면에 "반팔티" 항목이 저장된 것을 확인했다.
+
+### 남은 위험 / 미결정
+
+- 실제 사용자 사진(스튜디오 상품컷이 아닌 일반 배경) 기준 누끼 품질은 아직 벤치마크하지 않았다. FRD 13절 "지원 이미지 기준 일반 누끼 성공률 90% 이상"은 단계 3(골든 패스 통합 검증)에서 실측이 필요하다.
+- `u2net_cloth_seg`는 상의/하의/전신만 구분해 아우터/신발/가방/액세서리는 일반 누끼로만 처리된다 — 세부 카테고리 분류가 필요하면 별도의 라이선스 확인된 모델을 다시 조사해야 한다.
+- ML 서비스는 아직 어디에도 배포하지 않았다. 배포 대상(호스팅 제공자), `ALLOWED_ORIGINS` 운영값, 리소스 사양은 사용자 결정이 필요해 별도로 보고한다.

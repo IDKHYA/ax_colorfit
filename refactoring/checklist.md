@@ -307,4 +307,24 @@
 - [x] Git 추적 파일만 새 임시 폴더에 clone해 `npm ci`와 `npm run build`로 격리 검증한다.
 - [x] 격리 폴더에서 부모 경로·개발자 PC 절대 경로 참조가 없는지 grep으로 확인한다.
 - [x] 변경 파일, 테스트 결과, 남은 위험을 보고한다.
+- [x] 한 개의 논리 변경 단위별로 한국어 의미 커밋을 만든다.
+
+### 2026-07-16 FRD 단계 2 — 독립 ML 서비스 복구 구현
+
+- [x] git status와 실제 파일 구조를 확인한다.
+- [x] FR-040, FR-041, FR-042, NFR-003, NFR-004를 재확인한다.
+- [x] 정밀 추출 모델(segformer 계열)의 라이선스를 웹 검색으로 확인한다 — NVIDIA SegFormer 비상업 라이선스로 부적합 판정.
+- [x] 대체 모델(rembg의 u2net/u2net_cloth_seg, 원저작 Apache-2.0·MIT)의 라이선스를 확인해 공개 서비스에 적합함을 확인한다.
+- [x] `plan.md`, `checklist.md`, `context-notes.md`에 이번 단계 범위와 모델 선정 판단을 기록한다.
+- [x] `ml_service/tests/test_ml_service.py`에 health/누끼/정밀 추출/용량 제한/MIME 검증/CORS/모델 재사용 계약을 먼저 작성한다.
+- [x] `ml_service/` 패키지(models.py, image_processing.py, inference.py, app.py, requirements.txt)를 구현한다.
+- [x] 모델을 FastAPI lifespan에서 한 번만 로드해 재사용하게 만들고 재사용 단위 테스트로 고정한다.
+- [x] `pytest server/tests ml_service/tests` 35개 테스트를 통과시킨다.
+- [x] `npm run lint`, `npm test`, `npm run build`로 프론트 회귀가 없음을 확인한다.
+- [x] Git 추적 파일만 새 임시 폴더에 clone해 `npm ci`, `npm run build`, `pytest`로 격리 검증한다.
+- [x] `.env.example`에 `VITE_ML_API_BASE_URL`, `VITE_DEMO_MODE` 사용법을 기록한다.
+- [x] `npm run dev:ml` 스크립트를 추가한다.
+- [x] 로컬에서 프론트 + `ml_service`를 함께 띄워 브라우저로 실제 옷 추가(사진 업로드 → 자동 분석 → 저장) 흐름을 검증한다.
+- [x] ML 서비스를 끈 상태에서 같은 흐름이 원본 사진 + 수동 저장으로 완료되는지 브라우저로 재검증한다.
+- [x] 외부 배포는 하지 않고, 배포 계획과 필요한 사용자 권한을 보고한 뒤 멈춘다.
 - [ ] 한 개의 논리 변경 단위별로 한국어 의미 커밋을 만든다.
