@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port=3100 --host=0.0.0.0",
     "dev:api": "uvicorn server.app:app --host 0.0.0.0 --port 8001 --reload",
+    "dev:ml": "uvicorn ml_service.app:app --host 0.0.0.0 --port 8501 --reload",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "lint": "tsc --noEmit"
