@@ -31,6 +31,9 @@ venv/
 .DS_Store
 Thumbs.db
 
+# 도구 상태 (oh-my-claudecode) — 버전관리 제외
+.omc/
+
 # 참고 자료 — 로컬 보관, 버전관리 제외
 V2_UI/
 v2_pesnal/
