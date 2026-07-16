@@ -36,6 +36,12 @@ def cloth_extraction(
     resized = resize_for_inference(image_rgb)
     total_pixels = resized.width * resized.height
 
+    if cloth_session is None:
+        # 이 배포 프로필은 정밀 의류 추출 모델을 올리지 않는다(메모리 절약). 카테고리를 지어내지 않고
+        # 일반 세그멘테이션만 정직하게 수행한다.
+        rgba, bbox, colors = general_background_removal(image_rgb, general_session)
+        return rgba, bbox, colors, None
+
     if target_part in CLOTH_AWARE_TARGETS:
         mask_image = cloth_session.predict(resized, cc=target_part)[0]
         binary_mask = np.array(mask_image) > 127

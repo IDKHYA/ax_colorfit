@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
+import os
 import unittest
 from pathlib import Path
 
@@ -129,6 +130,72 @@ class ModelReuseTest(unittest.TestCase):
         first = models.get_cloth_session()
         second = models.get_cloth_session()
         self.assertIs(first, second)
+
+
+class LowMemorySessionConfigTest(unittest.TestCase):
+    """무료 512MB 티어에서도 안정적으로 뜨도록 onnxruntime 메모리 아레나를 비활성화했는지 검증한다.
+
+    아레나(enable_cpu_mem_arena)를 켜 두면 요청을 반복할수록 RSS가 계속 늘어나(실측 380MB → 985MB)
+    무료 티어 메모리 한도를 넘는다. 비활성화하면 반복 호출에도 메모리가 평평하게 유지된다(실측 236MB).
+    """
+
+    def setUp(self):
+        models.reset_for_tests()
+
+    def tearDown(self):
+        models.reset_for_tests()
+
+    def test_general_session_disables_memory_arena_and_pattern(self):
+        opts = models.get_general_session().inner_session.get_session_options()
+        self.assertFalse(opts.enable_cpu_mem_arena)
+        self.assertFalse(opts.enable_mem_pattern)
+
+    def test_cloth_session_disables_memory_arena_and_pattern(self):
+        opts = models.get_cloth_session().inner_session.get_session_options()
+        self.assertFalse(opts.enable_cpu_mem_arena)
+        self.assertFalse(opts.enable_mem_pattern)
+
+
+class GeneralOnlyProfileTest(unittest.TestCase):
+    """ENABLE_CLOTH_SEGMENTATION=false 배포 프로필(무료 512MB 티어용)을 검증한다.
+
+    실측: 두 모델을 다 올리면 FastAPI 구동 상태에서 약 558MB로 무료 512MB를 넘지만,
+    u2net 하나만 쓰면 약 376~430MB로 안전하게 들어간다. 이 프로필에서는 정밀 추출을
+    시도하지 않고 항상 정직한 일반 세그멘테이션 폴백만 수행해야 한다(가짜 성공 금지).
+    """
+
+    def setUp(self):
+        models.reset_for_tests()
+        os.environ["ENABLE_CLOTH_SEGMENTATION"] = "false"
+
+    def tearDown(self):
+        models.reset_for_tests()
+        os.environ.pop("ENABLE_CLOTH_SEGMENTATION", None)
+
+    def test_cloth_session_is_not_created(self):
+        self.assertIsNone(models.get_cloth_session())
+        self.assertNotIn(models.CLOTH_MODEL_NAME, models.models_ready())
+
+    def test_preload_does_not_load_cloth_model(self):
+        models.preload_models()
+        self.assertNotIn(models.CLOTH_MODEL_NAME, models._sessions)
+
+    def test_health_and_extract_stay_honest_without_cloth_model(self):
+        with TestClient(app) as client:
+            health = client.get("/api/health").json()
+            self.assertTrue(health["modelsReady"])
+            self.assertNotIn(models.CLOTH_MODEL_NAME, health["models"])
+
+            image_bytes = _make_test_image_bytes()
+            response = client.post(
+                "/api/clothing/extract",
+                data={"targetPart": "upper"},
+                files={"file": ("clothing.png", image_bytes, "image/png")},
+            )
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+            self.assertNotIn("detectedCategory", body)
+            self.assertEqual(body["model"], "u2net")
 
 
 class NoParentRepoDependencyTest(unittest.TestCase):
