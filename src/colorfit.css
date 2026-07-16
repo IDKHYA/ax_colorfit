@@ -295,18 +295,18 @@
     .saved-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 
     /* Daily */
-    .daily-layout { display: grid; grid-template-columns: 250px minmax(420px,1fr) 280px; gap: 16px; align-items: start; }
-    .asset-panel, .layer-panel { padding: 16px; display: grid; gap: 12px; }
+    .daily-layout { display: grid; grid-template-columns: 250px minmax(420px,1fr); gap: 16px; align-items: start; }
+    .asset-panel { padding: 16px; display: grid; gap: 12px; }
     .asset-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
     .asset-card { position: relative; border: 1px solid var(--line); border-radius: 11px; background: #fff; padding: 5px; }
     .asset-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
     .asset-card button { position: absolute; right: 7px; bottom: 7px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; }
     .canvas-panel { padding: 14px; }
+    .dailylook-stage-wrap { position: relative; }
     .daily-canvas { position: relative; max-width: 620px; margin: 0 auto; aspect-ratio: 3/4; overflow: hidden; border-radius: 16px; background: #f4f1eb; border: 1px solid var(--line); touch-action: none; }
     .canvas-item { position: absolute; width: 34%; user-select: none; touch-action: none; cursor: grab; filter: drop-shadow(0 11px 12px rgba(0,0,0,.1)); }
     .canvas-item.selected { outline: 2px solid var(--navy); outline-offset: 4px; border-radius: 10px; }
     .canvas-item img { width: 100%; pointer-events: none; }
-    .layer-list { display: grid; gap: 8px; }
     .layer-row { display: flex; align-items: center; gap: 9px; padding: 9px; border-radius: 11px; background: var(--surface-soft); }
     .layer-row img { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; }
     .range-field { display: grid; gap: 6px; }
@@ -351,7 +351,6 @@
       .detail-layout { grid-template-columns: 1fr; }
       .insight-panel, .recommend-side { position: static; }
       .daily-layout { grid-template-columns: 210px minmax(400px,1fr); }
-      .layer-panel { grid-column: 1/-1; }
       .flow-rail { min-height: auto; }
       .personal-shell .flow-rail { display: none; }
     }
@@ -426,7 +425,6 @@
       .daily-layout { grid-template-columns: 1fr; }
       .asset-panel { order: 2; }
       .canvas-panel { order: 1; }
-      .layer-panel { order: 3; }
       .asset-grid { grid-template-columns: repeat(4,1fr); }
       .settings-layout { grid-template-columns: 1fr; }
       .overlay { align-items: flex-end; padding: 10px; }
@@ -2425,12 +2423,11 @@
 .saved-item-preview-grid { margin-top: 10px; }
 .saved-card-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 
-/* 데일리룩 작업 영역은 3열을 유지하고 작은 화면에서 순서대로 접힙니다. */
+/* 데일리룩 작업 영역: 자산 패널 + 캔버스 2열. 캔버스 위 미니 툴바가 예전 레이어 편집 패널을 대신한다. */
 .daily-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.daily-status-row { margin-top: 12px; }
+.colorfit-daily .page-head { position: relative; }
 .colorfit-daily .daily-layout { margin-top: 2px; }
 .colorfit-daily .asset-panel,
-.colorfit-daily .layer-panel,
 .colorfit-daily .canvas-panel {
   border-color: var(--calm-line);
   background: var(--calm-surface);
@@ -2448,10 +2445,13 @@
 }
 .daily-asset-empty { color: var(--muted); font-size: 12px; }
 .colorfit-daily .canvas-panel { min-width: 0; }
+.colorfit-daily .dailylook-stage-wrap { width: min(100%, 620px); margin: 0 auto; }
 .colorfit-daily .daily-canvas {
-  width: min(100%, 620px);
+  width: 100%;
+  margin: 0;
   contain: layout paint;
 }
+.colorfit-daily .dailylook-stage-overlay { position: absolute; inset: 0; overflow: visible; pointer-events: none; z-index: 30; }
 .colorfit-daily .canvas-item.selected { will-change: transform; }
 .colorfit-daily .dailylook-layer {
   width: 34%;
@@ -2459,41 +2459,36 @@
 }
 .colorfit-daily .dailylook-layer:active { cursor: grabbing; }
 .colorfit-daily .dailylook-layer img { border: 0; background: transparent; }
-.colorfit-daily .dailylook-main-actions { justify-content: center; margin-top: 10px; }
-.colorfit-daily .layer-panel {
-  position: sticky;
-  top: 102px;
-  align-content: start;
-  max-height: calc(100dvh - 122px);
-  overflow-y: auto;
-}
-.colorfit-daily .dailylook-confirm-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.colorfit-daily .dailylook-editor-panel { min-width: 0; }
-.colorfit-daily .dailylook-editor-panel > label,
-.colorfit-daily .dailylook-text-controls > label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 750;
-}
-.colorfit-daily .dailylook-editor-panel input[type="text"] {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0 10px;
-}
-.colorfit-daily .layer-list { max-height: 240px; overflow-y: auto; }
 .colorfit-daily .dailylook-cutout-status { border-radius: 11px; background: #eef3f5; padding: 10px 12px; color: var(--muted); font-size: 12px; }
 .colorfit-daily .dailylook-cutout-status.error { background: #fff1ef; color: var(--danger); }
 .colorfit-daily .dailylook-picker-backdrop { z-index: 108; }
 .colorfit-daily .dailylook-picker-modal { border-radius: 20px; background: #fff; }
 
-/* 캔버스 배경색 컨트롤 — 프리셋 스와치와 커스텀 색상 선택. */
-.colorfit-daily .dailylook-bg-controls { display: grid; gap: 8px; margin-bottom: 4px; }
-.colorfit-daily .dailylook-bg-label { color: var(--muted); font-size: 11px; font-weight: 750; }
-.colorfit-daily .dailylook-bg-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* 헤더의 배경색 트리거 버튼과 팝오버 — 예전 레이어 편집 패널에 있던 배경색 선택을 옮겼다. */
+.colorfit-daily .dailylook-bg-trigger {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
+.colorfit-daily .dailylook-bg-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(17,24,39,.16);
+}
 .colorfit-daily .dailylook-bg-swatch {
   width: 26px;
   height: 26px;
@@ -2515,21 +2510,96 @@
 }
 .colorfit-daily .dailylook-bg-custom input[type="color"] { width: 34px; height: 34px; border: 0; background: transparent; padding: 0; cursor: pointer; }
 
-/* 선택된 옷 레이어의 캔버스 위 조작 핸들 — 크기(모서리)와 회전(상단). */
-.colorfit-daily .dailylook-layer-handle {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #111827;
-  box-shadow: 0 2px 6px rgba(17,24,39,.24);
-  touch-action: none;
-  z-index: 2;
+/* 선택된 옷/텍스트 레이어의 캔버스 위 조작 핸들 — 마우스(정밀 포인터)에서만 노출한다.
+   터치에서는 핸들 없이 아이템을 직접 두 손가락으로 잡아 크기·회전·이동을 동시에 처리한다. */
+.colorfit-daily .dailylook-layer-handle,
+.colorfit-daily .dailylook-text-rotate,
+.colorfit-daily .dailylook-text-resize {
+  display: none;
 }
-.colorfit-daily .dailylook-layer-handle.resize { right: -9px; bottom: -9px; cursor: nwse-resize; }
-.colorfit-daily .dailylook-layer-handle.rotate { top: -26px; left: 50%; transform: translateX(-50%); cursor: grab; background: #2563eb; }
-.colorfit-daily .dailylook-layer-handle.rotate:active { cursor: grabbing; }
+@media (hover: hover) and (pointer: fine) {
+  .colorfit-daily .dailylook-layer-handle,
+  .colorfit-daily .dailylook-text-rotate,
+  .colorfit-daily .dailylook-text-resize {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #fff;
+    background: #111827;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(17,24,39,.24);
+    touch-action: none;
+    z-index: 2;
+  }
+  .colorfit-daily .dailylook-layer-handle.resize,
+  .colorfit-daily .dailylook-text-resize { right: -11px; bottom: -11px; border-radius: 6px; cursor: nwse-resize; }
+  .colorfit-daily .dailylook-layer-handle.rotate,
+  .colorfit-daily .dailylook-text-rotate {
+    top: -10px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: #2563eb;
+    cursor: grab;
+  }
+  .colorfit-daily .dailylook-layer-handle.rotate:active,
+  .colorfit-daily .dailylook-text-rotate:active { cursor: grabbing; }
+}
+
+/* 캔버스 위에 붙는 플로팅 미니 툴바 — 예전 레이어 편집 사이드/드로어 패널을 대신한다. */
+.colorfit-daily .dailylook-mini-toolbar {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(17,24,39,.92);
+  pointer-events: auto;
+  box-shadow: 0 8px 20px rgba(17,24,39,.28);
+}
+.colorfit-daily .dailylook-mini-toolbar button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+}
+.colorfit-daily .dailylook-mini-toolbar button:hover { background: rgba(255,255,255,.16); }
+.colorfit-daily .dailylook-text-popover {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 20px rgba(17,24,39,.16);
+  pointer-events: auto;
+  z-index: 31;
+}
+.colorfit-daily .dailylook-text-popover input[type="text"] {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.colorfit-daily .dailylook-text-popover-swatch {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
 
 /* 설정은 카드 두 장과 기존 측정 기록으로 구성합니다. */
 .settings-page { display: grid; gap: 18px; }
@@ -2544,7 +2614,6 @@
   .colorfit-recommend .recommend-side { position: static; grid-template-columns: repeat(2, minmax(0,1fr)); }
   .saved-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .colorfit-daily .daily-layout { grid-template-columns: 210px minmax(390px,1fr); }
-  .colorfit-daily .layer-panel { position: static; grid-column: 1 / -1; max-height: none; grid-template-columns: minmax(240px,.7fr) minmax(360px,1.3fr); }
 }
 
 @media (max-width: 860px) {
@@ -2563,10 +2632,9 @@
   .colorfit-daily .daily-layout { grid-template-columns: 1fr; }
   .colorfit-daily .asset-panel { order: 1; }
   .colorfit-daily .canvas-panel { order: 2; }
-  .colorfit-daily .layer-panel { order: 3; display: grid; grid-template-columns: 1fr; }
   .daily-asset-grid { display: flex; overflow-x: auto; padding-bottom: 4px; }
   .daily-asset-grid .asset-card { flex: 0 0 96px; }
-  .colorfit-daily .daily-canvas { max-width: 560px; }
+  .colorfit-daily .dailylook-stage-wrap { max-width: 560px; }
   .settings-layout { grid-template-columns: 1fr; }
 }
 
@@ -2596,9 +2664,8 @@
   .saved-card-body { padding: 12px; }
   .saved-card-body p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .saved-item-preview-grid { grid-template-columns: 1fr; }
-  .daily-head-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .daily-head-actions { display: grid; grid-template-columns: auto 1fr 1fr; }
   .colorfit-daily .asset-panel,
-  .colorfit-daily .layer-panel,
   .colorfit-daily .canvas-panel { padding: 12px; }
   .colorfit-daily .daily-canvas { border-radius: 13px; }
   .settings-layout .setting-row { align-items: flex-start; }
@@ -2843,26 +2910,28 @@ textarea {
 }
 
 
-/* 데일리룩 모바일 편집 — 도구 패널을 하단 시트 서랍으로 압축한다. */
-.daily-mobile-bar { display: none; }
+/* 데일리룩 모바일 — 자산(사용 옷) 패널을 하단 시트 서랍으로 압축하고, 여는 진입점은 플로팅 FAB 하나로 둔다.
+   편집(크기·회전·이동)은 더 이상 별도 패널이 아니라 캔버스 위 아이템을 직접 조작해서 하므로 두 번째 탭이 없다. */
 .daily-drawer-backdrop { display: none; }
 .daily-drawer-close { display: none; }
+.dailylook-asset-fab { display: none; }
 
 @media (max-width: 860px) {
-  .colorfit-daily .daily-mobile-bar {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 2px;
+  .colorfit-daily .dailylook-asset-fab {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; right: 16px; bottom: 86px; z-index: 75;
+    width: 52px; height: 52px; border-radius: 50%; border: 0;
+    background: var(--navy); color: #fff;
+    box-shadow: 0 10px 24px rgba(17,24,39,.28);
   }
-  .colorfit-daily .daily-mobile-bar button {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    min-height: 46px; border: 1px solid var(--line); border-radius: 13px;
-    background: #fff; color: var(--ink); font-weight: 750; font-size: 13px;
+  .colorfit-daily .dailylook-asset-fab .badge {
+    position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
+    border-radius: 999px; background: #fff; color: var(--navy);
+    font-size: 11px; font-weight: 800; display: grid; place-items: center; padding: 0 4px;
   }
-  .colorfit-daily .daily-mobile-bar button.active { border-color: var(--navy); background: var(--navy); color: #fff; }
-  .colorfit-daily .daily-mobile-bar .icon { width: 17px; height: 17px; }
 
   /* 서랍: 화면 하단에서 올라오는 바텀 시트. 열릴 때만 화면을 덮는다. */
-  .colorfit-daily .asset-panel,
-  .colorfit-daily .layer-panel {
+  .colorfit-daily .asset-panel {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
     max-height: 76vh; overflow-y: auto;
     margin: 0; border-radius: 22px 22px 0 0;
@@ -2871,8 +2940,7 @@ textarea {
     box-shadow: 0 -18px 48px rgba(16,22,31,.22);
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
-  .colorfit-daily .asset-panel.drawer-open,
-  .colorfit-daily .layer-panel.drawer-open {
+  .colorfit-daily .asset-panel.drawer-open {
     transform: translateY(0); visibility: visible;
     transition: transform .28s ease;
   }

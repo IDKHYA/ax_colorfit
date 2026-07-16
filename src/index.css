@@ -2815,8 +2815,7 @@ label {
 
 .dailylook-canvas-panel,
 .dailylook-side-column,
-.dailylook-confirm-panel,
-.dailylook-editor-panel {
+.dailylook-confirm-panel {
   display: grid;
   gap: 14px;
 }
@@ -2829,11 +2828,17 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.dailylook-stage {
+.dailylook-stage-wrap {
   position: relative;
   width: min(100%, 540px);
   aspect-ratio: 3 / 4;
   margin: 0 auto;
+}
+
+.dailylook-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
@@ -2843,6 +2848,13 @@ label {
     #f8f9fb;
   background-size: 72px 72px;
   touch-action: none;
+}
+
+.dailylook-stage-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .dailylook-layer {
@@ -2872,7 +2884,7 @@ label {
   pointer-events: none;
 }
 
-.dailylook-layer span {
+.dailylook-layer > span:not(.dailylook-layer-handle) {
   position: absolute;
   left: 6px;
   top: 6px;
@@ -2908,63 +2920,15 @@ label {
   pointer-events: none;
 }
 
+/* 데스크톱(정밀 포인터)에서만 노출한다 — 실제 크기/스타일은 colorfit.css의 hover/pointer 미디어쿼리에서 정의한다. */
 .dailylook-text-resize {
-  position: absolute;
-  right: -8px;
-  bottom: -8px;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #2563eb;
-  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.24);
-  cursor: nwse-resize;
+  display: none;
 }
 
-.dailylook-main-actions,
-.dailylook-tool-grid {
+.dailylook-main-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.dailylook-tool-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.dailylook-selected-item,
-.dailylook-layer-list,
-.dailylook-text-controls {
-  display: grid;
-  gap: 8px;
-}
-
-.dailylook-selected-item {
-  border-radius: 12px;
-  background: #f5f7f9;
-  padding: 12px;
-}
-
-.dailylook-layer-list button {
-  min-height: 36px;
-  border: 1px solid #d8dee8;
-  border-radius: 10px;
-  background: #fff;
-  color: #344054;
-  padding: 0 10px;
-  text-align: left;
-}
-
-.dailylook-layer-list button.active {
-  border-color: #111827;
-  background: #111827;
-  color: #fff;
-}
-
-.line-button.danger {
-  border-color: #fecdca;
-  color: #b42318;
 }
 
 .dailylook-picker-backdrop {
@@ -3970,10 +3934,6 @@ label {
 
   .dailylook-stage {
     width: 100%;
-  }
-
-  .dailylook-editor-panel {
-    padding-bottom: 18px;
   }
 
   .wardrobe-summary-row,
