@@ -14,6 +14,8 @@ describe('ML API 기준 URL 환경변수 경계(FR-042)', () => {
   });
 
   it('VITE_ML_API_BASE_URL이 없으면 기존과 동일하게 같은 출처 상대 경로를 쓴다', async () => {
+    // 로컬 .env.local에 실제 ngrok 주소가 들어있을 수 있으므로, "미설정" 상황을 명시적으로 재현한다.
+    vi.stubEnv('VITE_ML_API_BASE_URL', '');
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', fetchMock);
 

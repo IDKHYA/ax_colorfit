@@ -49,8 +49,11 @@ import { FinalResult } from './types';
 import type {
   ClothingCategory,
   ClothingItem,
+  ClothingSegmentationMeta,
+  DenimWash,
   MaterialType,
   Page,
+  PatternType,
   RecommendationMode,
   RecommendationWeatherBand,
   SeasonTag,
@@ -142,9 +145,46 @@ function fromCatalog(item: CatalogItem, wardrobeId: string): ClothingItem {
   };
 }
 
-function catalogToDailyLookItem(item: CatalogItem): ScoredClothingItem {
+// 카탈로그 원본에는 앞서 계산해 둔 catalogItemId 기준 누끼 결과(있다면)를 덧씌운다.
+// 이 풀의 아이템은 실제 옷장(clothingItems)에 없으므로 cutoutImageUrl을 세션 캐시로 따로 들고 있어야 한다.
+const CATALOG_DAILYLOOK_PREFIX = 'catalog-dailylook-';
+
+interface CatalogCutoutEntry {
+  cutoutImageUrl: string;
+  segmentation: ClothingSegmentationMeta;
+  color: string;
+  representativeColor: string;
+  representativeHex: string;
+  dominantColors: ClothingItem['dominantColors'];
+  patternType: PatternType;
+  material: MaterialType;
+  isNeutral: boolean;
+  isDenim: boolean;
+  denimWash?: DenimWash;
+}
+
+function catalogToDailyLookItem(item: CatalogItem, cutoutCache: Record<string, CatalogCutoutEntry>): ScoredClothingItem {
+  const base = fromCatalog(item, 'catalog-dailylook');
+  const cached = cutoutCache[item.catalogItemId];
   return {
-    ...fromCatalog(item, 'catalog-dailylook'),
+    ...base,
+    ...(cached
+      ? {
+          imageUrl: cached.cutoutImageUrl,
+          cutoutImageUrl: cached.cutoutImageUrl,
+          originalImageUrl: base.imageUrl,
+          segmentation: cached.segmentation,
+          color: cached.color,
+          representativeColor: cached.representativeColor,
+          representativeHex: cached.representativeHex,
+          dominantColors: cached.dominantColors,
+          patternType: cached.patternType,
+          material: cached.material,
+          isNeutral: cached.isNeutral,
+          isDenim: cached.isDenim,
+          denimWash: cached.denimWash,
+        }
+      : {}),
     id: `catalog-dailylook-${item.catalogItemId}`,
     personalFitScore: null,
     fitGrade: null,
@@ -217,7 +257,11 @@ function App() {
     });
   }, [selectedWardrobeId, wardrobes]);
 
-  const dailyLookSourceItems = useMemo(() => [...scoredItems, ...ACTIVE_CATALOG_ITEMS.map(catalogToDailyLookItem)], [scoredItems]);
+  const [catalogCutoutCache, setCatalogCutoutCache] = useState<Record<string, CatalogCutoutEntry>>({});
+  const dailyLookSourceItems = useMemo(
+    () => [...scoredItems, ...ACTIVE_CATALOG_ITEMS.map((item) => catalogToDailyLookItem(item, catalogCutoutCache))],
+    [scoredItems, catalogCutoutCache],
+  );
   const { savedOutfits, savedLookFolders, activeTryOnOutfitId, saveOutfit, deleteSavedOutfit, updateSavedOutfitDailyLook, createBlankDailyLook: createBlankDailyLookState, createSavedLookFolder, renameSavedLookFolder, deleteSavedLookFolder, moveSavedOutfit, toggleSavedOutfitFavorite, openDailyLookMaker: setActiveDailyLook, resetSavedOutfits } = useSavedOutfits(dailyLookSourceItems);
   const filteredCatalog = catalogCategory === '전체' ? ACTIVE_CATALOG_ITEMS : ACTIVE_CATALOG_ITEMS.filter((item) => item.category === catalogCategory);
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
@@ -355,6 +399,52 @@ function App() {
         });
       } catch (error) {
         throw new Error(`${item.type} 누끼 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+      }
+    }
+
+    // "카탈로그에서 데일리룩 만들기"로 추가한 아이템은 실제 옷장(clothingItems)에 없어 위 목록에 잡히지 않는다.
+    // catalogItemId 기준 세션 캐시(catalogCutoutCache)에 결과를 따로 저장한다.
+    const catalogTargetIds = itemIds
+      .filter((id) => id.startsWith(CATALOG_DAILYLOOK_PREFIX))
+      .map((id) => id.slice(CATALOG_DAILYLOOK_PREFIX.length))
+      .filter((catalogItemId) => !catalogCutoutCache[catalogItemId]);
+    const catalogTargets = catalogTargetIds
+      .map((catalogItemId) => ACTIVE_CATALOG_ITEMS.find((item) => item.catalogItemId === catalogItemId))
+      .filter((item): item is CatalogItem => Boolean(item));
+
+    for (const item of catalogTargets) {
+      try {
+        const sourceBlob = await imageUrlToUploadBlob(item.imageUrl);
+        const result = await requestBackgroundRemoval(sourceBlob, `${item.catalogItemId}.png`);
+        const detectedColor = dominantColorFromAnalysis(result.colors);
+        const nextColor = detectedColor?.hex ?? item.color;
+        const nextMeta = buildColorMeta(item.category, item.subcategory, nextColor, result.colors, item.brand);
+        setCatalogCutoutCache((prev) => ({
+          ...prev,
+          [item.catalogItemId]: {
+            cutoutImageUrl: result.imageDataUrl,
+            segmentation: {
+              width: result.width,
+              height: result.height,
+              bbox: result.bbox,
+              colors: result.colors ?? [],
+              model: result.model,
+              version: result.version ?? CUTOUT_VERSION,
+              processedAt: result.processedAt,
+            },
+            color: nextColor,
+            representativeColor: nextMeta.representativeColor,
+            representativeHex: detectedColor?.hex ?? nextMeta.representativeHex,
+            dominantColors: nextMeta.dominantColors,
+            patternType: nextMeta.patternType,
+            material: nextMeta.material,
+            isNeutral: nextMeta.isNeutral,
+            isDenim: nextMeta.isDenim,
+            denimWash: nextMeta.denimWash,
+          },
+        }));
+      } catch (error) {
+        throw new Error(`${item.subcategory} 누끼 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
       }
     }
   };
