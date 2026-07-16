@@ -341,3 +341,13 @@
 - [x] `pytest server/tests ml_service/tests` 40개, 격리 검증까지 재통과시킨다.
 - [x] `context-notes.md`에 실측치와 원인, 남은 위험을 기록한다.
 - [x] 의미 단위 커밋을 만든다.
+
+### 2026-07-16 배포 방향 전환 — 로컬 실행 + ngrok
+
+- [x] ngrok으로 로컬 ML 서비스를 노출하는 방식의 장단점을 정리해 보고한다.
+- [x] 무료 호스팅 RAM 제약 해결책이었던 `ENABLE_CLOTH_SEGMENTATION` 저메모리 프로필을 되돌린다(로컬 실행은 RAM 제약이 없어 불필요).
+- [x] onnxruntime 메모리 아레나 비활성화(models.py)는 로컬에서도 유효하므로 유지한다.
+- [x] `pytest ml_service/tests server/tests`로 되돌린 뒤 회귀가 없는지 확인한다(37개).
+- [x] `npm run lint`, `npm test`, `npm run build`를 재확인한다.
+- [x] `refactoring/ml-service-ngrok-guide.md`에 로컬 실행·ngrok 설치·고정 도메인·Vercel 환경변수·CORS 설정 순서를 문서화한다.
+- [x] 의미 단위 커밋을 만든다.
