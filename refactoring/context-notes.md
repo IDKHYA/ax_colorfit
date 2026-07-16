@@ -483,3 +483,21 @@ ML 장애 시 수동 등록 완료(FR-034/042)는 `useManualClothing.autoAnalyze
 - 실제 사용자 사진(스튜디오 상품컷이 아닌 일반 배경) 기준 누끼 품질은 아직 벤치마크하지 않았다. FRD 13절 "지원 이미지 기준 일반 누끼 성공률 90% 이상"은 단계 3(골든 패스 통합 검증)에서 실측이 필요하다.
 - `u2net_cloth_seg`는 상의/하의/전신만 구분해 아우터/신발/가방/액세서리는 일반 누끼로만 처리된다 — 세부 카테고리 분류가 필요하면 별도의 라이선스 확인된 모델을 다시 조사해야 한다.
 - ML 서비스는 아직 어디에도 배포하지 않았다. 배포 대상(호스팅 제공자), `ALLOWED_ORIGINS` 운영값, 리소스 사양은 사용자 결정이 필요해 별도로 보고한다.
+
+## 2026-07-16 무료 호스팅 메모리 실측과 저메모리 프로필 추가
+
+보고 직후 사용자가 무료 호스팅 가능 여부를 물어 조사했다. Railway는 2023년에 무료 티어를 없앴고(현재는 1회성 $5 크레딧), Fly.io는 신용카드 등록이 필요하고 무료 티어가 없다. Render만 실질적 무료 티어(15분 미사용 시 슬립, 첫 요청 30~60초 콜드스타트)가 있다.
+
+실제로 이 프로세스의 RSS를 직접 측정했다. `rembg.new_session()`으로 만든 세션은 onnxruntime CPU 메모리 아레나가 켜진 채라 두 모델 로드 후 563MB, 첫 추론 후 870MB, 이후 이미지 크기를 줄여 가며 반복 호출해도 985MB까지 계속 늘고 줄지 않았다. Render 무료 512MB로는 두 모델은커녕 일반 누끼 하나만으로도(반복 시 985MB) 위험하다고 판단해 사용자에게 그대로 보고했다.
+
+사용자가 "엔진 교체(rembg vs 직접 onnxruntime 튜닝) 조사"를 요청해 원인을 추적했다. `rembg.session_factory.new_session()`은 `ort.SessionOptions()`를 내부에서 만들어 커스터마이즈할 공개 경로가 없다. rembg의 세션 클래스(`U2netSession`, `Unet2ClothSession`) 자체는 `BaseSession.__init__(model_name, sess_opts, ...)`를 받으므로, `new_session()`을 거치지 않고 세션 클래스를 직접 생성하면서 `enable_cpu_mem_arena=False`, `enable_mem_pattern=False`로 만든 `SessionOptions`를 넣을 수 있었다. 이 옵션만 바꿨더니 반복 호출에도 메모리가 늘지 않고 평평하게 유지됐다(원본 onnxruntime 단독 테스트: 두 모델+반복 추론 약 410MB, 실제 FastAPI 앱을 통한 반복 요청: 두 모델 로드 시 약 558MB로 안정).
+
+두 모델을 다 올리면(558MB) 512MB를 여전히 넘지만, `u2net` 하나만 올리면 FastAPI 구동 상태에서 약 376~430MB로 안전하게 들어간다는 것도 실측했다. 이를 반영해 사용자가 고른 방향("일반 누끼만 무료로 배포, 정밀 추출은 나중에")대로 `ENABLE_CLOTH_SEGMENTATION` 환경변수(기본 true)를 추가했다. false면 `models.get_cloth_session()`이 `None`을 반환해 `u2net_cloth_seg`를 아예 로드하지 않고, `models_ready()`에는 그 항목 자체를 넣지 않는다(로드 안 된 모델을 "준비됨"으로 거짓 보고하지 않기 위해). `inference.cloth_extraction`은 `cloth_session`이 `None`이면 카테고리를 시도조차 하지 않고 곧바로 정직한 일반 세그멘테이션 폴백을 쓴다 — 이미 있던 "탐지 실패 시 폴백" 경로를 재사용한 것이라 새 분기가 아니다.
+
+메모리 아레나 비활성화가 실제로 적용됐는지는 `get_session_options().enable_cpu_mem_arena`를 읽어 단위 테스트로 고정했다(`LowMemorySessionConfigTest`). 저메모리 프로필은 `GeneralOnlyProfileTest`로 고정했다 — 세션 미생성, `models_ready()`에 cloth 키 부재, `/api/clothing/extract`가 `detectedCategory` 없이 `model: "u2net"`만 반환하는지 확인한다.
+
+### 남은 위험 (갱신)
+
+- Render 무료 배포 시 `ENABLE_CLOTH_SEGMENTATION=false`로 설정해야 한다 — 기본값(true)으로 그냥 배포하면 두 모델이 다 올라가 512MB를 넘길 수 있다. 배포 설정에 반드시 반영해야 한다.
+- 메모리 아레나 비활성화는 처리 속도에 다소 불리할 수 있다(아레나는 원래 재할당 비용을 줄이기 위한 최적화). 실측 지연은 별도로 재보지 않았다 — 단계 3 골든 패스 검증에서 응답 시간도 함께 확인이 필요하다.
+- 정밀 추출을 무료 티어에서 완전히 끄면 FR-041 수용 기준(AC-04의 "ML 정상 상태에서 분석 초안과 누끼 결과가 반환된다")은 유료 배포에서만 100% 충족된다. 무료 배포에서는 일반 누끼만 제공하고 사용자가 색상·카테고리를 수동 확인해야 하는 비중이 늘어난다는 점을 배포 공지에 반영해야 한다.
