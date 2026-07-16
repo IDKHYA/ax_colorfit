@@ -6,6 +6,19 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3100
+    },
+    {
+      "name": "colorfit-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:api"],
+      "port": 8001
+    },
+    {
+      "name": "colorfit-ml",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:ml"],
+      "port": 8501,
+      "autoPort": false
     }
   ]
 }
