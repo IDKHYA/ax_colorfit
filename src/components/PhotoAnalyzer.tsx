@@ -743,7 +743,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                   <>
                     <video ref={videoRef} autoPlay playsInline muted className="photo-camera-media" />
                     <canvas ref={overlayCanvasRef} className="sr-only" />
-                    <div className={liveDetection ? 'capture-face-guide detected' : 'capture-face-guide'} aria-hidden="true"><span>얼굴 위치</span></div>
+                    <div className={liveDetection ? 'capture-face-guide detected' : 'capture-face-guide'} aria-hidden="true" />
                     {liveDetection && (
                       <>
                         <div className="face-detection-box" style={toDisplayRect(liveDetection.faceBounds)} aria-hidden="true" />
@@ -752,7 +752,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                         ))}
                       </>
                     )}
-                    <div className="white-reference-guide" aria-hidden="true"><span>흰 종이</span></div>
+                    <div className="white-reference-guide" aria-hidden="true" />
                     {countdown && <div className="camera-countdown" aria-live="polite">{countdown}</div>}
                   </>
                 ) : (

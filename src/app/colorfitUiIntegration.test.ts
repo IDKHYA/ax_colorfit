@@ -38,6 +38,8 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(photo).toContain('capture-prep-overlay');
     expect(photo).toContain('camera-control-dock');
     expect(photo).toContain('capture-face-guide');
+    expect(photo).not.toContain('<span>얼굴 위치</span>');
+    expect(photo).not.toContain('<span>흰 종이</span>');
     expect(photo).toContain('switchCamera');
     expect(photo).not.toContain('flow-rail');
     expect(photo).not.toContain('photo-guidance-row');
@@ -46,6 +48,8 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(css).toContain('.camera-control-dock');
     expect(css).toContain('.capture-face-guide');
     expect(css).toContain('margin-inline: auto');
+    expect(css).toContain('.photo-camera-frame.stream-portrait .white-reference-guide');
+    expect(css).toContain('top: auto');
     expect(questionnaire).toContain('question-layout');
     expect(questionnaire).toContain('option-card');
     expect(result).toContain('result-liquid-layout');
