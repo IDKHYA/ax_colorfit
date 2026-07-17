@@ -351,3 +351,15 @@
 - [x] `npm run lint`, `npm test`, `npm run build`를 재확인한다.
 - [x] `refactoring/ml-service-ngrok-guide.md`에 로컬 실행·ngrok 설치·고정 도메인·Vercel 환경변수·CORS 설정 순서를 문서화한다.
 - [x] 의미 단위 커밋을 만든다.
+
+### 2026-07-18 Vercel 실배포 연결 + 동시 요청 대비
+
+- [x] Vercel 배포(`ax-colorfit.vercel.app`) 확인 후 `ml_service`의 `ALLOWED_ORIGINS`를 그 도메인으로 재설정한다.
+- [x] ngrok/`ml_service` 재기동 절차를 실제로 반복 수행해 매번 정상 연결됨을 확인한다.
+- [x] 예상 동시 사용자 30명 규모에 맞춰 3가지 대응안(스레드풀 오프로딩, 동시 처리 한도, 유료 상시 호스팅)을 비교해 보고한다.
+- [x] 스레드풀 오프로딩 + 동시 처리 한도(`InferenceGate`, `ML_CONCURRENCY_LIMIT`)를 실패 테스트 우선으로 구현한다.
+- [x] 실제 스레드로 동시 요청을 재현해 한도 초과 시 즉시 503, 첫 요청은 정상 완료됨을 HTTP 레벨 테스트로 고정한다.
+- [x] `/api/health`에 `concurrency.capacity/active`를 노출한다.
+- [x] `pytest ml_service/tests server/tests`(42개), `npm test`(160개), `npm run lint`를 통과시킨다.
+- [x] 로컬 `ml_service` 재기동 후 ngrok 경유로 새 concurrency 필드가 반영됐는지 재확인한다.
+- [x] 의미 단위 커밋을 만든다.

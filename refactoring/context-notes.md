@@ -515,3 +515,18 @@ ML 장애 시 수동 등록 완료(FR-034/042)는 `useManualClothing.autoAnalyze
 - 컴퓨터/ngrok 가동 시간이 곧 ML 가용성이다. 노트북 절전모드나 네트워크 재연결로 ngrok 프로세스가 죽으면 조용히 ML만 실패 모드로 전환된다 — 사용자가 원하면 ngrok 재시작을 감시하는 간단한 워치독(예: 죽으면 알림)을 다음 단계에서 추가할 수 있다.
 - ngrok 무료 플랜의 요청 빈도 제한은 실측하지 않았다. 개인 사용 규모에서는 문제 없을 가능성이 높지만 실제 트래픽이 늘면 재검토가 필요하다.
 - 실제 Vercel 배포 도메인이 정해지기 전까지는 `ALLOWED_ORIGINS`를 코드에 반영하지 않았다 — 가이드 문서에만 "배포 도메인이 정해지면 채워라"로 남겨 뒀다.
+
+## 2026-07-18 Vercel 실배포 연결과 동시 요청 대비
+
+사용자가 실제로 `ax-colorfit.vercel.app`에 배포했고, `VITE_ML_API_BASE_URL` 미설정 상태에서 Vercel 자체 503 안내("이 배포에는 AI 이미지 분석 서버가 포함되어 있지 않습니다")가 뜨는 것을 확인했다. 로컬에서 ngrok 터널과 `ml_service`가 세션 종료로 함께 죽어 있었던 것도 원인 중 하나였다. `ml_service`를 재기동하고 `ngrok http --url=... 8501`을 다시 실행해 터널을 복구했고, `ALLOWED_ORIGINS`를 `http://localhost:3100,https://ax-colorfit.vercel.app`로 재설정해 실제 요청(`curl -H "Origin: https://ax-colorfit.vercel.app"`)으로 CORS 허용을 확인했다. Vercel 쪽은 대시보드 Environment Variables에 `VITE_ML_API_BASE_URL`을 추가하고 재배포하는 절차를 안내했다(Vite 환경변수는 빌드 시점에 고정되므로 재배포 필수).
+
+이후 사용자가 "약 30명 동시 접속"을 언급하며 대응책을 물었다. 계정/로그인 시스템은 아직 없고 데이터가 브라우저 localStorage/IndexedDB에만 있어 사용자별 데이터 분리는 이미 자동으로 되어 있다는 점을 먼저 짚었다. 실제 위험은 `ml_service`의 누끼 추론이 동기(blocking) 호출이라 FastAPI 엔드포인트 안에서 그대로 실행되면 이벤트 루프 하나를 막아, 그 순간 다른 모든 사용자 요청까지 같이 지연된다는 점이었다. 세 가지 대응안(스레드풀 오프로딩+동시 처리 한도, 명시적 혼잡 응답, 유료 상시 호스팅 전환)을 제시했고 사용자가 "1번+2번을 합치자"고 정했다.
+
+`ml_service/concurrency.py`에 `InferenceGate`를 추가했다. `run_in_threadpool`로 추론을 스레드에 위임해 이벤트 루프를 막지 않게 하고, `capacity`(기본 `min(4, cpu_count())`, `ML_CONCURRENCY_LIMIT` 환경변수로 조정 가능)를 넘는 요청은 큐잉하지 않고 즉시 `BusyError`를 던져 503 "지금 요청이 많습니다"로 정직하게 응답한다 — FR-042가 이미 갖고 있는 "상태를 숨기지 않고 구분한다"는 원칙을 동시성에도 그대로 적용한 것이다. capacity/active 체크와 증가는 `await` 없이 한 블록에서 실행돼 단일 스레드 이벤트 루프에서 원자적이므로 별도 락이 필요 없다.
+
+검증은 실제 스레드 두 개로 진짜 동시 요청을 만들어 확인했다(mock으로 시간만 늦춘 가짜 추론 함수 사용) — 첫 요청이 슬롯을 잡고 있는 동안 두 번째 요청은 즉시 503을 받고, 첫 요청은 정상 완료된다. `/api/health`에 `concurrency: {capacity, active}`를 노출해 운영 중 관측도 가능하게 했다. 백엔드 42개(서버 25 + ml_service 17), 프론트 160개 모두 통과했고, 로컬 `ml_service`를 재기동해 ngrok 경유로도 새 필드가 반영됨을 재확인했다.
+
+### 남은 위험 (갱신)
+
+- `ML_CONCURRENCY_LIMIT` 기본값(`min(4, cpu_count())`)은 이 컴퓨터의 실제 코어 수 기준 추정치다. 실사용 부하에서 적정 값인지는 실측하지 않았다 — 30명이 몰릴 때 체감 대기시간을 보고 조정이 필요할 수 있다.
+- ngrok/`ml_service`가 컴퓨터 재부팅이나 세션 종료로 함께 죽는 문제가 이번에도 재현됐다. 사용자가 원하면 Windows 시작 시 자동 기동하는 스크립트/작업 스케줄러 등록을 다음 단계로 추가할 수 있다.
