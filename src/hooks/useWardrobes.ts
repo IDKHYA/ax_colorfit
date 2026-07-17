@@ -9,9 +9,7 @@ import { deleteItemImages, offloadImages, rehydrateImages } from '../services/im
 import { localAppPersistence } from '../services/appPersistence';
 
 export const INITIAL_WARDROBES: Wardrobe[] = [
-  { id: 'w-demo-1', name: '출근용 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
-  { id: 'w-demo-2', name: '주말 캐주얼 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
-  { id: 'w-demo-3', name: '발표/중요 일정 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
+  { id: 'w-demo-1', name: '내 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
 ];
 
 const INITIAL_CLOTHING: ClothingItem[] = [];
