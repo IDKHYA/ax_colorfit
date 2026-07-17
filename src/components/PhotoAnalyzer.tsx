@@ -10,7 +10,7 @@
  * 흰 종이/배경 보정 안내, 분석 중 상태 표시를 모두 처리합니다.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Camera, RefreshCw } from 'lucide-react';
+import { AlertCircle, Camera, Image, RefreshCw, ScanFace, Sun, SwitchCamera, X } from 'lucide-react';
 import { PhotoAnalysisResult } from '@/src/types';
 import { detectFaceSnapshot, getFaceLandmarker } from '@/src/services/faceLandmarker';
 import { analyzePhotoColors } from '@/src/services/personalColorEngine';
@@ -18,6 +18,7 @@ import { analyzeFaceSnapshotColors, buildSampleRegions, calibrationRegionToPixel
 
 interface PhotoAnalyzerProps {
   onAnalysisComplete: (result: PhotoAnalysisResult) => void;
+  onExit: () => void;
 }
 
 const AUTO_CAPTURE_DELAY_MS = 3000;
@@ -89,7 +90,7 @@ const getFreshLocalCameraPermissionUrl = () => {
   return `${protocol}//127.0.0.${current + 1}${port ? `:${port}` : ''}${pathname}${search}${hash}`;
 };
 
-export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps) {
+export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnalyzerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,6 +109,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
   const countdownIntervalRef = useRef<number | null>(null);
   const countdownEndAtRef = useRef(0);
   const isCapturingRef = useRef(false);
+  const cameraFacingModeRef = useRef<'user' | 'environment'>('user');
 
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -123,6 +125,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
   const [streamOrientation, setStreamOrientation] = useState<'portrait' | 'landscape' | 'unknown'>('unknown');
   const [detectionStatus, setDetectionStatus] = useState('얼굴을 가이드 안에 맞춰주세요');
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
+  const [isPrepOpen, setIsPrepOpen] = useState(true);
 
   // 컴포넌트가 열리면 카메라와 얼굴 랜드마크 모델을 동시에 준비합니다.
   // 종료 시에는 stream, object URL, 타이머, animation frame을 모두 정리합니다.
@@ -150,7 +153,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
   // 카메라가 준비된 동안 실시간 얼굴 검출 루프를 실행합니다.
   // 데스크톱은 requestAnimationFrame, 모바일은 setTimeout 간격 검출로 부하를 낮춥니다.
   useEffect(() => {
-    if (!isCameraReady || capturedImage || isAnalyzing || !isModelReady) {
+    if (isPrepOpen || !isCameraReady || capturedImage || isAnalyzing || !isModelReady) {
       clearAutoCaptureTimer();
       clearOverlay();
       return;
@@ -279,7 +282,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
       clearAutoCaptureTimer();
       clearOverlay();
     };
-  }, [capturedImage, isAnalyzing, isCameraReady, isModelReady]);
+  }, [capturedImage, isAnalyzing, isCameraReady, isModelReady, isPrepOpen]);
 
   // ref와 state를 함께 갱신해 비동기 루프에서도 최신 얼굴 검출 상태를 참조할 수 있게 합니다.
   const updateLiveDetection = (state: LiveDetectionState | null) => {
@@ -388,10 +391,10 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
     }).catch(() => undefined);
   };
 
-  // 카메라 요청 조건을 한 곳에서 만듭니다. deviceId가 있으면 특정 카메라를, 없으면 전면 카메라를 선호합니다.
-  const buildCameraConstraints = (deviceId?: string | null): MediaStreamConstraints => ({
+  // 카메라 요청 조건을 한 곳에서 만듭니다. deviceId가 있으면 특정 카메라를, 없으면 현재 전후면 모드를 사용합니다.
+  const buildCameraConstraints = (facingMode: 'user' | 'environment', deviceId?: string | null): MediaStreamConstraints => ({
     video: {
-      ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'user' } }),
+      ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: facingMode } }),
       width: { ideal: 720 },
       height: { ideal: 1280 },
       aspectRatio: { ideal: 9 / 16 },
@@ -400,10 +403,11 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
 
   // 카메라 권한을 요청하고 video 태그에 stream을 연결합니다.
   // 제약 조건 실패 시 더 일반적인 가로 해상도 조건으로 한 번 더 fallback합니다.
-  const startCamera = async () => {
+  const startCamera = async (facingMode: 'user' | 'environment' = cameraFacingModeRef.current) => {
     stopCamera();
     revokeCapturedImage();
     isCapturingRef.current = false;
+    cameraFacingModeRef.current = facingMode;
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -412,22 +416,22 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
 
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia(buildCameraConstraints());
+        stream = await navigator.mediaDevices.getUserMedia(buildCameraConstraints(facingMode));
 
-        if (isMobileViewport()) {
+        if (isMobileViewport() && facingMode === 'user') {
           const preferredDeviceId = await getPreferredFrontCameraDeviceId();
           const currentDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId;
           if (preferredDeviceId && preferredDeviceId !== currentDeviceId) {
             stream.getTracks().forEach((track) => track.stop());
-            stream = await navigator.mediaDevices.getUserMedia(buildCameraConstraints(preferredDeviceId));
+            stream = await navigator.mediaDevices.getUserMedia(buildCameraConstraints(facingMode, preferredDeviceId));
           }
-          await applyLowestSupportedZoom(stream);
         }
+        if (isMobileViewport()) await applyLowestSupportedZoom(stream);
       } catch (constraintError) {
         if (constraintError instanceof DOMException && constraintError.name === 'OverconstrainedError') {
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
-              facingMode: { ideal: 'user' },
+              facingMode: { ideal: facingMode },
               width: { ideal: 1280 },
               height: { ideal: 720 },
             },
@@ -453,6 +457,12 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
       setCameraPermissionBlocked(isCameraPermissionBlocked(cameraError));
       setError(getCameraErrorMessage(cameraError));
     }
+  };
+
+  // 사용자가 전후면 전환을 요청하면 기존 stream을 닫고 반대 facingMode로 다시 연결합니다.
+  const switchCamera = () => {
+    const nextFacingMode = cameraFacingModeRef.current === 'user' ? 'environment' : 'user';
+    void startCamera(nextFacingMode);
   };
 
   // 권한 차단 상태면 새 loopback 주소로 이동하고, 일반 오류면 같은 화면에서 다시 카메라를 시작합니다.
@@ -700,88 +710,111 @@ export default function PhotoAnalyzer({ onAnalysisComplete }: PhotoAnalyzerProps
 
   return (
     <div className="photo-analyzer">
-      <div className="personal-shell">
-        <aside className="glass-panel flow-rail">
-          <div>
-            <span className="page-kicker">Step 1 of 3</span>
-            <h2>퍼컬 진단</h2>
-            <div className="flow-steps">
-              <div className="flow-step active"><span className="step-num">1</span><span><strong>사진 분석</strong><small>조명과 얼굴 색상</small></span></div>
-              <div className="flow-step"><span className="step-num">2</span><span><strong>간단 설문</strong><small>평소 색 반응</small></span></div>
-              <div className="flow-step"><span className="step-num">3</span><span><strong>결과 확인</strong><small>12계절 스펙트럼</small></span></div>
+      <div className="personal-shell personal-capture-shell">
+        <section className="camera-shell">
+          <header className="capture-progress">
+            <span className="capture-progress-spacer" aria-hidden="true" />
+            <div className="capture-steps" aria-label="퍼컬 진단 진행 단계">
+              <div className="capture-step active"><span>1</span><strong>사진</strong></div>
+              <i aria-hidden="true" />
+              <div className="capture-step"><span>2</span><strong>설문</strong></div>
+              <i aria-hidden="true" />
+              <div className="capture-step"><span>3</span><strong>결과</strong></div>
             </div>
-          </div>
-          <p>자연광에서 얼굴을 정면으로 두고 흰 종이를 아래 가이드에 맞추면 조명 보정이 더 안정적입니다.</p>
-        </aside>
+            <button className="capture-exit-button" type="button" onClick={onExit}>진단 나가기</button>
+          </header>
 
-        <section className="camera-stage photo-analyzer-stage">
-          {error ? (
-            <div className="camera-error-state">
-              <AlertCircle className="camera-error-icon" />
-              <strong>카메라를 열지 못했습니다.</strong>
-              <p>{error}</p>
-              {cameraPermissionBlocked && <small>같은 주소에서 이미 거절한 경우 새 주소로 이동하거나 사진을 선택해 분석할 수 있습니다.</small>}
-              <div className="camera-error-actions">
-                <button className="button secondary" type="button" onClick={retryCamera}>다시 시도</button>
-                {cameraPermissionBlocked && <button className="button primary" type="button" onClick={() => fallbackFileInputRef.current?.click()}>사진 선택</button>}
+          <section className="camera-stage photo-analyzer-stage">
+            {error ? (
+              <div className="camera-error-state">
+                <AlertCircle className="camera-error-icon" />
+                <strong>카메라를 열지 못했습니다.</strong>
+                <p>{error}</p>
+                {cameraPermissionBlocked && <small>같은 주소에서 이미 거절한 경우 새 주소로 이동하거나 사진을 선택해 분석할 수 있습니다.</small>}
+                <div className="camera-error-actions">
+                  <button className="button secondary" type="button" onClick={retryCamera}>다시 시도</button>
+                  {cameraPermissionBlocked && <button className="button primary" type="button" onClick={() => fallbackFileInputRef.current?.click()}>사진 선택</button>}
+                </div>
+                {cameraPermissionBlocked && <input ref={fallbackFileInputRef} type="file" accept="image/*" capture="user" hidden onChange={handleFallbackFileChange} />}
               </div>
-              {cameraPermissionBlocked && <input ref={fallbackFileInputRef} type="file" accept="image/*" capture="user" hidden onChange={handleFallbackFileChange} />}
-            </div>
-          ) : (
-            <div ref={frameRef} className={'photo-camera-frame stream-' + streamOrientation}>
+            ) : (
+              <div ref={frameRef} className={'photo-camera-frame stream-' + streamOrientation}>
+                {!capturedImage ? (
+                  <>
+                    <video ref={videoRef} autoPlay playsInline muted className="photo-camera-media" />
+                    <canvas ref={overlayCanvasRef} className="sr-only" />
+                    <div className={liveDetection ? 'face-guide detected' : 'face-guide'} aria-hidden="true"><span>얼굴 위치</span></div>
+                    {liveDetection && (
+                      <>
+                        <div className="face-detection-box" style={toDisplayRect(liveDetection.faceBounds)} aria-hidden="true" />
+                        {liveDetection.sampleRegions.slice(0, 7).map((region) => (
+                          <div key={region.key} className="sample-region-box" style={toDisplayRect(region)} aria-hidden="true" />
+                        ))}
+                      </>
+                    )}
+                    <div className="white-reference-guide" aria-hidden="true"><span>흰 종이</span></div>
+                    {countdown && <div className="camera-countdown" aria-live="polite">{countdown}</div>}
+                  </>
+                ) : (
+                  <img src={capturedImage} alt="촬영한 얼굴" className="photo-camera-media" />
+                )}
+
+                <div className="camera-ui">
+                  <div className="capture-status"><Camera className="icon" />{autoCaptureArmed ? '얼굴 유지 중 · 자동 촬영 준비' : detectionStatus}</div>
+                  <div className="white-calibration-pill">흰 종이 보정</div>
+                </div>
+
+                {isAnalyzing && (
+                  <div className="camera-analysis-state">
+                    <RefreshCw className="camera-analysis-spinner" />
+                    <strong>{statusMessage}</strong>
+                    <div className="progress-track"><i className="progress-fill" style={{ width: Math.max(4, progress) + '%' }} /></div>
+                    <small>{Math.round(progress)}%</small>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <div className="camera-control-dock">
+            <button className="camera-dock-action" type="button" onClick={() => fallbackFileInputRef.current?.click()} disabled={isAnalyzing}>
+              <span><Image /></span><strong>앨범</strong>
+            </button>
+            <div className="camera-primary-control">
               {!capturedImage ? (
-                <>
-                  <video ref={videoRef} autoPlay playsInline muted className="photo-camera-media" />
-                  <canvas ref={overlayCanvasRef} className="sr-only" />
-                  <div className={liveDetection ? 'face-guide detected' : 'face-guide'} aria-hidden="true"><span>얼굴 위치</span></div>
-                  {liveDetection && (
-                    <>
-                      <div className="face-detection-box" style={toDisplayRect(liveDetection.faceBounds)} aria-hidden="true" />
-                      {liveDetection.sampleRegions.slice(0, 7).map((region) => (
-                        <div key={region.key} className="sample-region-box" style={toDisplayRect(region)} aria-hidden="true" />
-                      ))}
-                    </>
-                  )}
-                  <div className="white-reference-guide" aria-hidden="true"><span>흰 종이</span></div>
-                  {countdown && <div className="camera-countdown" aria-live="polite">{countdown}</div>}
-                </>
+                <button className="capture-button" type="button" onClick={() => void captureAndAnalyze()} disabled={!isCameraReady || !isModelReady || isAnalyzing} aria-label="바로 촬영 및 분석" />
               ) : (
-                <img src={capturedImage} alt="촬영한 얼굴" className="photo-camera-media" />
+                <button className="camera-retake-button" type="button" onClick={() => void startCamera()} disabled={isAnalyzing}>다시 촬영</button>
               )}
-
-              <div className="camera-ui">
-                <div className="capture-status"><Camera className="icon" />{autoCaptureArmed ? '얼굴 유지 중 · 자동 촬영 준비' : detectionStatus}</div>
-                <div className="camera-bottom">
-                  {!capturedImage ? (
-                    <>
-                      <div className="calibration"><strong>색상 보정 가이드</strong><span>{isModelReady ? '얼굴을 고정하면 3초 뒤 자동 촬영됩니다.' : '얼굴 분석 모델을 준비하고 있습니다.'}</span></div>
-                      <button className="capture-button" type="button" onClick={() => void captureAndAnalyze()} disabled={!isCameraReady || !isModelReady || isAnalyzing} aria-label="바로 촬영 및 분석" />
-                    </>
-                  ) : (
-                    <button className="button secondary" type="button" onClick={() => void startCamera()}>다시 촬영</button>
-                  )}
-                </div>
-              </div>
-
-              {isAnalyzing && (
-                <div className="camera-analysis-state">
-                  <RefreshCw className="camera-analysis-spinner" />
-                  <strong>{statusMessage}</strong>
-                  <div className="progress-track"><i className="progress-fill" style={{ width: Math.max(4, progress) + '%' }} /></div>
-                  <small>{Math.round(progress)}%</small>
-                </div>
-              )}
+              <small>{capturedImage ? '사진 확인' : isModelReady ? '바로 촬영' : '모델 준비 중'}</small>
             </div>
-          )}
+            <button className="camera-dock-action" type="button" onClick={switchCamera} disabled={isAnalyzing}>
+              <span><SwitchCamera /></span><strong>카메라 전환</strong>
+            </button>
+          </div>
         </section>
       </div>
 
       <canvas ref={captureCanvasRef} className="sr-only" />
       {!cameraPermissionBlocked && <input ref={fallbackFileInputRef} type="file" accept="image/*" capture="user" hidden onChange={handleFallbackFileChange} />}
-      <div className="photo-guidance-row">
-        <span><strong>자동 촬영</strong>얼굴이 안정적으로 인식되면 3초 뒤 촬영합니다.</span>
-        <span><strong>조명 보정</strong>흰 종이를 가이드 안에 두면 색온도 오차를 줄입니다.</span>
-      </div>
+
+      {isPrepOpen && (
+        <div className="capture-prep-overlay" role="dialog" aria-modal="true" aria-labelledby="capture-prep-title">
+          <section className="capture-prep-dialog">
+            <header>
+              <div><h2 id="capture-prep-title">촬영 전 확인</h2><p>세 가지를 확인하면 3초 자동 촬영이 더 안정적으로 작동합니다.</p></div>
+              <button type="button" onClick={() => setIsPrepOpen(false)} aria-label="촬영 준비 안내 닫기"><X /></button>
+            </header>
+            <div className="capture-prep-list">
+              <div><span><ScanFace /></span><p><strong>얼굴 위치</strong><small>정면을 보고 타원 중앙에 얼굴을 맞춰주세요.</small></p></div>
+              <div><span><Sun /></span><p><strong>주변 조명</strong><small>창문을 정면으로 보고 그림자와 역광을 피해주세요.</small></p></div>
+              <div><span><Image /></span><p><strong>흰 종이 보정</strong><small>얼굴 아래 슬롯에 흰 종이를 기울지 않게 보여주세요.</small></p></div>
+            </div>
+            <p className="capture-prep-note">흰 종이가 없어도 기본 조명 보정으로 진단할 수 있습니다.</p>
+            <button className="button primary capture-prep-start" type="button" onClick={() => setIsPrepOpen(false)}>촬영 시작</button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

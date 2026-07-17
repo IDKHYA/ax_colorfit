@@ -502,13 +502,10 @@ function App() {
           {page === 'personal' && (
             <section className="personal-route">
               {analysisStep === 'photo' && (
-                <>
-                  <div className="page-head">
-                    <div className="page-head-copy"><span className="page-kicker">Step 1 of 3</span><h1>얼굴 사진 촬영</h1><p>얼굴과 흰 종이를 가이드에 맞추면 색상 분석을 시작합니다.</p></div>
-                    <button className="button secondary" type="button" onClick={() => goPage('home')}>진단 나가기</button>
-                  </div>
-                  <PhotoAnalyzer onAnalysisComplete={(result) => { setPhotoData(result); navigate({ page: 'personal', analysisStep: 'questionnaire' }); }} />
-                </>
+                <PhotoAnalyzer
+                  onExit={() => goPage('home')}
+                  onAnalysisComplete={(result) => { setPhotoData(result); navigate({ page: 'personal', analysisStep: 'questionnaire' }); }}
+                />
               )}
               {analysisStep === 'questionnaire' && (
                 <>
