@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from .concurrency import BusyError, get_gate
 from .image_processing import InvalidImageError, decode_upload, now_iso, to_data_url
 from .inference import cloth_extraction, general_background_removal
 from .models import get_cloth_session, get_general_session, models_ready, preload_models
@@ -59,7 +60,13 @@ async def _read_upload_image(file: UploadFile):
 @app.get("/api/health")
 async def get_health():
     ready = models_ready()
-    return {"ok": True, "modelsReady": all(ready.values()), "models": ready}
+    gate = get_gate()
+    return {
+        "ok": True,
+        "modelsReady": all(ready.values()),
+        "models": ready,
+        "concurrency": {"capacity": gate.capacity, "active": gate.active},
+    }
 
 
 @app.post("/api/background/remove")
@@ -67,7 +74,9 @@ async def post_background_remove(file: UploadFile = File(...)):
     _require_models_ready()
     image = await _read_upload_image(file)
     try:
-        rgba, bbox, colors = general_background_removal(image, get_general_session())
+        rgba, bbox, colors = await get_gate().run(general_background_removal, image, get_general_session())
+    except BusyError as exc:
+        raise HTTPException(status_code=503, detail="지금 요청이 많습니다. 잠시 후 다시 시도해 주세요.") from exc
     except Exception as exc:  # noqa: BLE001 - 예측 실패 원인을 사용자에게 노출하지 않고 500으로 통일한다
         raise HTTPException(status_code=500, detail="배경 제거 처리 중 오류가 발생했습니다.") from exc
     return {
@@ -87,9 +96,11 @@ async def post_clothing_extract(file: UploadFile = File(...), targetPart: str = 
     _require_models_ready()
     image = await _read_upload_image(file)
     try:
-        rgba, bbox, colors, detected_category = cloth_extraction(
-            image, get_cloth_session(), get_general_session(), targetPart
+        rgba, bbox, colors, detected_category = await get_gate().run(
+            cloth_extraction, image, get_cloth_session(), get_general_session(), targetPart
         )
+    except BusyError as exc:
+        raise HTTPException(status_code=503, detail="지금 요청이 많습니다. 잠시 후 다시 시도해 주세요.") from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="정밀 의류 추출 처리 중 오류가 발생했습니다.") from exc
 
