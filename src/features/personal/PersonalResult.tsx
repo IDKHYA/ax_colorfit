@@ -1,5 +1,5 @@
 // 퍼스널컬러 결과를 12계절 스펙트럼으로 보여주고 이전 진단 이력을 관리합니다.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Shirt } from 'lucide-react';
 import { Chip, ColorTileGrid, PanelTitle } from '../../components/common';
 import { SEASON_DETAILS } from '../../seasonContent';
@@ -7,6 +7,7 @@ import type { FinalResult, SeasonId } from '../../types';
 import type { PersonalColorRecord } from '../../wardrobeTypes';
 import { SEASON_LABELS } from '../../wardrobeConstants';
 import { SEASON_DISPLAY } from './seasonDisplay';
+import { buildSeasonGlassBackground } from './seasonGlass';
 
 const SEASON_FAMILIES: Array<{ title: string; color: string; ids: SeasonId[] }> = [
   { title: 'SPRING · WARM/CLEAR', color: '#FF9C64', ids: ['light-spring', 'true-spring', 'bright-spring'] },
@@ -66,6 +67,13 @@ export function PersonalResult({
     setPreviewSeasonId(result.seasonTop1Id);
   }, [result.seasonTop1Id]);
 
+  // 화면에 들어올 때마다 새 배치를 뽑기 위한 시드(마운트당 고정). 미리보기 시즌이 바뀌면 그 시즌 색으로 갱신된다.
+  const glassSeed = useMemo(() => Math.floor(Math.random() * 1e9), []);
+  const heroGlassBackground = useMemo(
+    () => buildSeasonGlassBackground(previewSeasonId, glassSeed),
+    [previewSeasonId, glassSeed],
+  );
+
   const profile = SEASON_DISPLAY[previewSeasonId];
   const actualProfile = SEASON_DISPLAY[result.seasonTop1Id];
   const titleLines = profile.title.split(String.fromCharCode(10));
@@ -92,7 +100,7 @@ export function PersonalResult({
 
       <div className="result-liquid-layout">
         <section className="glass-panel liquid-result-hero">
-          <div className="hero-liquid-layer" />
+          <div className="hero-liquid-layer" style={heroGlassBackground ? { background: heroGlassBackground } : undefined} />
           <div className="result-hero-head">
             <div className="result-brand"><img className="result-brand-mark" src="/icons/colorfit-mark.png" alt="" aria-hidden="true" /><span>ColorFit</span></div>
             <span className="season-code">{profile.code}</span>

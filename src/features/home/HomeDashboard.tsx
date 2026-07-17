@@ -1,6 +1,8 @@
 // V5 Exact 홈 구조에 현재 퍼컬, 날씨, 옷장, 저장 룩 데이터를 연결합니다.
+import { useMemo } from 'react';
 import { Bookmark, Camera, ChevronRight, ImagePlus, Sparkles, Sun } from 'lucide-react';
 import { clothingDisplayImage } from '../../services/clothingDisplay';
+import { buildSeasonGlassBackground } from '../personal/seasonGlass';
 import { SEASON_LABELS } from '../../wardrobeConstants';
 import type { useWeather } from '../../hooks/useWeather';
 import type { FinalResult } from '../../types';
@@ -24,6 +26,12 @@ export function HomeDashboard(props: {
 }) {
   const result = props.personalColorResult;
   const seasonLabel = result ? SEASON_LABELS[result.seasonTop1Id] : '미측정';
+  // 홈에 들어올 때마다 판정 시즌 팔레트에서 랜덤 4색·랜덤 위치로 리퀴드 글래스를 만든다. 미측정이면 중립(레이어 없음).
+  const glassSeed = useMemo(() => Math.floor(Math.random() * 1e9), []);
+  const todayGlassBackground = useMemo(
+    () => buildSeasonGlassBackground(result?.seasonTop1Id ?? null, glassSeed),
+    [result?.seasonTop1Id, glassSeed],
+  );
   const latestOutfit = props.savedOutfits[0];
   const latestItems = latestOutfit?.itemIds
     .map((id) => props.scoredItems.find((item) => item.id === id))
@@ -40,7 +48,8 @@ export function HomeDashboard(props: {
   return (
     <section className="colorfit-home">
       <div className="home-layout">
-        <section className="glass-panel today-panel">
+        <section className={'glass-panel today-panel' + (todayGlassBackground ? ' today-panel--season' : '')}>
+          {todayGlassBackground && <div className="today-liquid-layer" style={{ background: todayGlassBackground }} />}
           <div className="today-content">
             <span className="page-kicker">{weekday} · {temperature} · {seasonLabel}</span>
             <h1>{result ? '오늘은 ' + seasonLabel + '의 색으로 시작해볼까요?' : '오늘 입을 옷을 함께 정리해볼까요?'}</h1>

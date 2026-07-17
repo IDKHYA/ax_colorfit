@@ -59,7 +59,7 @@
       box-shadow: var(--shadow); padding: 18px 12px;
     }
     .brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 20px; color: var(--ink); border: 0; background: transparent; text-align: left; }
-    .brand-mark { display: block; width: 40px; height: 40px; object-fit: contain; border-radius: 12px; flex: none; filter: drop-shadow(0 6px 12px rgba(25,39,69,.10)); }
+    .brand-mark { display: block; width: 40px; height: 40px; object-fit: contain; border-radius: 12px; flex: none; }
     .brand-copy { display: grid; gap: 2px; }
     .brand-copy strong { font-size: 20px; }
     .brand-copy small { color: var(--muted); font-size: 10px; font-weight: 700; }
@@ -144,6 +144,8 @@
     .home-layout { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; }
     .today-panel { position: relative; min-height: 350px; overflow: hidden; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; }
     .today-panel::after { content: ""; position: absolute; right: -70px; bottom: -100px; width: 320px; height: 320px; border-radius: 46% 54% 63% 37%; background: rgba(255,217,95,.45); filter: blur(4px); }
+    .today-liquid-layer { position: absolute; inset: -14%; z-index: 1; pointer-events: none; filter: blur(34px) saturate(118%); transition: background .5s ease; }
+    .today-panel--season::after { display: none; }
     .today-content { position: relative; z-index: 2; max-width: 640px; display: grid; gap: 15px; }
     .today-content h1 { max-width: 560px; font-size: 40px; }
     .today-state { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; max-width: 620px; }
@@ -635,9 +637,11 @@
 
     .hero-liquid-layer {
       position: absolute;
-      inset: 0;
+      inset: -12%;
       z-index: -1;
       pointer-events: none;
+      filter: blur(30px) saturate(115%);
+      transition: background .5s ease;
       background:
         linear-gradient(125deg, rgba(255,255,255,.26), transparent 31%, rgba(255,255,255,.12) 48%, transparent 72%),
         radial-gradient(circle at 78% 14%, rgba(255,255,255,.64), transparent 21rem);
