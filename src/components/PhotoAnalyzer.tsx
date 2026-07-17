@@ -743,7 +743,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                   <>
                     <video ref={videoRef} autoPlay playsInline muted className="photo-camera-media" />
                     <canvas ref={overlayCanvasRef} className="sr-only" />
-                    <div className={liveDetection ? 'face-guide detected' : 'face-guide'} aria-hidden="true"><span>얼굴 위치</span></div>
+                    <div className={liveDetection ? 'capture-face-guide detected' : 'capture-face-guide'} aria-hidden="true"><span>얼굴 위치</span></div>
                     {liveDetection && (
                       <>
                         <div className="face-detection-box" style={toDisplayRect(liveDetection.faceBounds)} aria-hidden="true" />

@@ -180,7 +180,6 @@
     .camera-stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(rgba(15,18,20,.12),rgba(15,18,20,.32)); filter: saturate(.65); }
     .camera-ui { position: relative; z-index: 2; min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 28px; }
     .capture-status { display: inline-flex; align-items: center; gap: 8px; min-height: 39px; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,.78); backdrop-filter: blur(12px); font-weight: 750; }
-    .face-guide { width: min(48vw,300px); aspect-ratio: .82; border: 2px solid rgba(255,255,255,.8); border-radius: 46% 46% 44% 44%; box-shadow: 0 0 0 999px rgba(0,0,0,.08); }
     .camera-bottom { width: min(100%,520px); display: grid; justify-items: center; gap: 16px; }
     .calibration { width: 100%; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.76); border: 1px solid rgba(255,255,255,.8); backdrop-filter: blur(12px); text-align: center; }
     .paper-slot { margin-top: 8px; border: 1px solid rgba(7,29,112,.2); border-radius: 11px; background: rgba(255,255,255,.83); padding: 13px; color: #596173; font-weight: 700; }
@@ -400,7 +399,6 @@
       .saved-preview { grid-template-columns: 112px 1fr; }
       .camera-stage, .camera-ui { min-height: calc(100dvh - 108px); border-radius: 18px; }
       .camera-ui { padding: 20px 16px; }
-      .face-guide { width: 230px; }
       .calibration { padding: 11px; }
       .question-card { padding: 20px; }
       .question-options { grid-template-columns: 1fr; }
@@ -583,17 +581,6 @@
         linear-gradient(180deg, rgba(255,255,255,.08), transparent 35%, rgba(7,12,18,.13));
     }
     .camera-ui { z-index: 3; }
-    .face-guide {
-      position: relative;
-      border: 1.5px solid rgba(255,255,255,.86);
-      background: rgba(255,255,255,.045);
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,.18),
-        0 0 46px rgba(255,255,255,.13),
-        0 0 0 999px rgba(9,14,17,.085);
-      -webkit-backdrop-filter: blur(1.5px);
-      backdrop-filter: blur(1.5px);
-    }
     .calibration { background: rgba(245,247,248,.80); }
     .paper-slot { background: rgba(255,255,255,.82); box-shadow: inset 0 1px 4px rgba(29,39,55,.08); }
     .capture-button {
@@ -1864,16 +1851,43 @@
   font-weight: 800;
 }
 .white-calibration-pill { pointer-events: none; }
-.photo-camera-frame .face-guide {
+.capture-face-guide {
   position: absolute;
   z-index: 4;
-  left: 50%;
-  top: 15%;
-  width: min(42%, 300px);
-  height: 50%;
-  transform: translateX(-50%);
+  inset-inline: 0;
+  top: 18%;
+  width: clamp(220px, 36%, 280px);
+  height: 46%;
+  margin-inline: auto;
+  aspect-ratio: auto;
+  border: 1.5px solid rgba(255,255,255,.88);
   border-radius: 46% 46% 44% 44%;
+  background: rgba(255,255,255,.035);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.16),
+    0 0 42px rgba(255,255,255,.12),
+    0 0 0 999px rgba(9,14,17,.08);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
   pointer-events: none;
+}
+.photo-camera-frame.stream-portrait .capture-face-guide { width: clamp(220px, 36%, 280px); height: 46%; }
+.photo-camera-frame.stream-landscape .capture-face-guide { width: clamp(210px, 34%, 270px); height: 44%; }
+.capture-face-guide > span {
+  position: absolute;
+  left: 50%;
+  top: -29px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(226,240,255,.9);
+  padding: 0 10px;
+  color: #31506f;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
 .photo-camera-frame .white-reference-guide {
   left: 50%;
@@ -2105,7 +2119,9 @@
   .capture-step strong { display: none; }
   .capture-exit-button { min-height: 32px; padding: 0 9px; font-size: 10px; }
   .photo-camera-frame .camera-ui { padding: 18px 14px; }
-  .photo-camera-frame .face-guide { width: min(62%, 250px); height: 45%; top: 14%; }
+  .capture-face-guide,
+  .photo-camera-frame.stream-portrait .capture-face-guide,
+  .photo-camera-frame.stream-landscape .capture-face-guide { top: 16%; width: min(62%, 240px); height: 46%; }
   .photo-camera-frame .white-reference-guide { width: min(72%, 280px); bottom: 4%; }
   .camera-control-dock { min-height: 104px; padding: 12px 20px; }
   .question-card { min-height: 0; }

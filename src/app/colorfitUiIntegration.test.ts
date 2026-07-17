@@ -37,12 +37,15 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(photo).toContain('capture-progress');
     expect(photo).toContain('capture-prep-overlay');
     expect(photo).toContain('camera-control-dock');
+    expect(photo).toContain('capture-face-guide');
     expect(photo).toContain('switchCamera');
     expect(photo).not.toContain('flow-rail');
     expect(photo).not.toContain('photo-guidance-row');
     expect(app).not.toContain('<h1>얼굴 사진 촬영</h1>');
     expect(css).toContain('.capture-prep-overlay');
     expect(css).toContain('.camera-control-dock');
+    expect(css).toContain('.capture-face-guide');
+    expect(css).toContain('margin-inline: auto');
     expect(questionnaire).toContain('question-layout');
     expect(questionnaire).toContain('option-card');
     expect(result).toContain('result-liquid-layout');
