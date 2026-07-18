@@ -1,6 +1,7 @@
 // 퍼스널컬러 결과를 12계절 스펙트럼으로 보여주고 이전 진단 이력을 관리합니다.
-import { useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Shirt } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { toPng } from 'html-to-image';
+import { Download, RotateCcw, Shirt } from 'lucide-react';
 import { Chip, ColorTileGrid, PanelTitle } from '../../components/common';
 import { SEASON_DETAILS } from '../../seasonContent';
 import type { FinalResult, SeasonId } from '../../types';
@@ -9,6 +10,8 @@ import { SEASON_LABELS } from '../../wardrobeConstants';
 import { SEASON_DISPLAY } from './seasonDisplay';
 import { buildSeasonGlassBackground } from './seasonGlass';
 import { pickDiversePaletteColors } from './paletteSample';
+import { ShareCard } from './ShareCard';
+import { buildShareFileName } from './shareCardFileName';
 
 const SEASON_FAMILIES: Array<{ title: string; color: string; ids: SeasonId[] }> = [
   { title: 'SPRING · WARM/CLEAR', color: '#FF9C64', ids: ['light-spring', 'true-spring', 'bright-spring'] },
@@ -85,6 +88,34 @@ export function PersonalResult({
     { key: 'Lips', label: '입술', color: result.extractedColors.lips },
   ];
 
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+
+  const handleSaveImage = async () => {
+    if (!shareCardRef.current || isSavingImage) return;
+    setIsSavingImage(true);
+    try {
+      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 1, cacheBust: true });
+      const fileName = buildShareFileName(profile.ko, new Date());
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'ColorFit', text: `${profile.ko} 퍼컬 결과` });
+          return;
+        } catch (shareError) {
+          if ((shareError as Error).name === 'AbortError') return;
+        }
+      }
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName;
+      link.click();
+    } finally {
+      setIsSavingImage(false);
+    }
+  };
+
   return (
     <section className="personal-result-page colorfit-personal-result">
       <div className="page-head">
@@ -95,8 +126,13 @@ export function PersonalResult({
         </div>
         <div className="result-hero-actions">
           <button className="button secondary" type="button" onClick={onRetry}><RotateCcw className="icon" />다시 측정</button>
+          <button className="button secondary" type="button" onClick={handleSaveImage} disabled={isSavingImage}><Download className="icon" />{isSavingImage ? '저장 중…' : '이미지로 저장'}</button>
           {onOpenWardrobe && <button className="button primary" type="button" onClick={onOpenWardrobe}><Shirt className="icon" />옷장에 적용</button>}
         </div>
+      </div>
+
+      <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden="true">
+        <ShareCard ref={shareCardRef} profile={profile} glassBackground={heroGlassBackground} />
       </div>
 
       <div className="result-liquid-layout">
