@@ -1,6 +1,6 @@
 // 촬영 없이 골든 패스를 시험할 수 있는 기본 사용자 데이터를 제공합니다.
-import { SEASON_PROFILES, WORKBOOK_SOURCE } from '../personalColorWorkbook';
-import type { FinalResult } from '../types';
+import { SEASON_ORDER, SEASON_PROFILES, WORKBOOK_SOURCE } from '../personalColorWorkbook';
+import type { FinalResult, SeasonId } from '../types';
 import type { PersonalColorRecord } from '../wardrobeTypes';
 
 const SOFT_SUMMER = SEASON_PROFILES['soft-summer'];
@@ -124,4 +124,49 @@ export function getInitialPersonalColorState(
     result: SOFT_SUMMER_DEMO_RESULT,
     history: storedHistory.length > 0 ? storedHistory : [SOFT_SUMMER_DEMO_RECORD],
   };
+}
+
+// 임시: 시즌별로 메인화면 리퀴드 글래스 색상이 어떻게 보이는지 확인하기 위한 12시즌 전체 미리보기 기록.
+// 확인이 끝나면 이 함수와 호출부(Settings의 "전체 시즌 미리보기" 버튼)를 제거한다.
+function buildSeasonPreviewResult(seasonId: SeasonId): FinalResult {
+  const profile = SEASON_PROFILES[seasonId];
+  return {
+    temperature: profile.traits.temperature >= 0 ? 'warm' : 'cool',
+    seasonTop1Id: seasonId,
+    seasonTop1: profile.name,
+    seasonTop2Id: seasonId,
+    seasonTop2: profile.name,
+    confidence: 0.9,
+    decisionType: 'questionnaire',
+    evidence: {
+      photoSignal: { dominantSeasonId: seasonId, temperature: '촬영 없음', confidence: 0, dominantSeason: '시즌 미리보기' },
+      questionSignal: { temperature: profile.traits.temperature >= 0 ? 'warm' : 'cool', clarity: profile.traits.clarity >= 0 ? 'clear' : 'muted', confidence: 0.9 },
+      consistency: 'high',
+      workbookBasis: `${WORKBOOK_SOURCE} 기반의 ${profile.name} 미리보기`,
+      fusionWeights: { photo: 0, questionnaire: 1 },
+      boundary: { isBoundary: false, gap: 0, note: '시즌별 색상 미리보기용 임시 데이터입니다.' },
+    },
+    recommendationFeatures: {
+      preferredTemperature: profile.traits.temperature >= 0 ? 'warm' : 'cool',
+      preferredClarity: profile.traits.clarity >= 0 ? 'clear' : 'muted',
+      preferredLightness: profile.traits.lightness >= 0 ? 'light' : 'deep',
+      contrastLevel: profile.traits.contrast >= 0 ? 'high' : 'low',
+    },
+    palette: profile.palette,
+    extractedColors: {
+      skin: profile.palette[0],
+      hair: profile.palette[3],
+      eyes: profile.palette[19],
+      lips: profile.palette[4],
+    },
+    explanation: `${profile.name} 색상이 메인화면과 결과 화면에서 어떻게 보이는지 확인하기 위한 임시 미리보기 결과입니다.`,
+  };
+}
+
+export function buildSeasonPreviewRecords(): PersonalColorRecord[] {
+  return SEASON_ORDER.map((seasonId) => ({
+    id: `pc-preview-${seasonId}`,
+    measuredAt: new Date().toISOString(),
+    result: buildSeasonPreviewResult(seasonId),
+  }));
 }

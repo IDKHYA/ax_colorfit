@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fuseResults } from '../services/personalColorEngine';
 import type { FinalResult, PhotoAnalysisResult, QuestionnaireScores } from '../types';
 import type { PersonalColorRecord } from '../wardrobeTypes';
-import { getInitialPersonalColorState } from '../services/demoUserData';
+import { buildSeasonPreviewRecords, getInitialPersonalColorState } from '../services/demoUserData';
 import { localAppPersistence } from '../services/appPersistence';
 
 const personalColorPersistence = localAppPersistence.personalColor;
@@ -52,6 +52,14 @@ export function usePersonalColor() {
     personalColorPersistence.clear();
   };
 
+  // 임시: 설정 화면에서 12시즌 색상을 전부 미리보기 위한 기록을 기존 이력 앞에 채워 넣는다.
+  const seedSeasonPreviewHistory = () => {
+    const previewRecords = buildSeasonPreviewRecords();
+    const nextHistory = [...previewRecords, ...personalColorHistory.filter((entry) => !entry.id.startsWith('pc-preview-'))].slice(0, 40);
+    setPersonalColorHistory(nextHistory);
+    personalColorPersistence.saveHistory(nextHistory);
+  };
+
   return {
     photoData,
     setPhotoData,
@@ -60,5 +68,6 @@ export function usePersonalColor() {
     completeQuestionnaire,
     applyPersonalColorRecord,
     resetPersonalColor,
+    seedSeasonPreviewHistory,
   };
 }

@@ -218,7 +218,7 @@ const SCREEN_META: Record<string, { title: string; subtitle: string }> = {
 // 앱의 최상위 상태 컨테이너입니다.
 // 퍼스널컬러 결과, 옷장/의류, 추천 코디, 저장 코디, 라우팅 상태를 여기서 관리하고 하위 화면에 props로 내려줍니다.
 function App() {
-  const { setPhotoData, personalColorResult, personalColorHistory, completeQuestionnaire, applyPersonalColorRecord, resetPersonalColor } = usePersonalColor();
+  const { setPhotoData, personalColorResult, personalColorHistory, completeQuestionnaire, applyPersonalColorRecord, resetPersonalColor, seedSeasonPreviewHistory } = usePersonalColor();
   const { wardrobes, clothingItems, selectedWardrobeId, setSelectedWardrobeId, scoredItems, activeWardrobe, activeItems, persistClothing, createWardrobe, deleteClothing, renameWardrobe, deleteWardrobe, resetWardrobes, updateClothingItems } = useWardrobes(personalColorResult, ACTIVE_CATALOG_ITEMS);
   const { page, analysisStep, setAnalysisStep, wardrobeView, navigate, goPage, goBack } = useAppRoute(
     selectedWardrobeId,
@@ -638,6 +638,13 @@ function App() {
                   </div>
                 </section>
               </div>
+              {/* 임시: 시즌별 메인화면 색상 확인용. 확인 끝나면 이 버튼과 seedSeasonPreviewHistory를 제거한다. */}
+              <section className="panel">
+                <div className="section-head"><div><h2>임시 · 시즌 색상 확인</h2><small>12시즌 전체를 기록에 채워서 각 시즌 색이 메인화면/결과화면에 어떻게 보이는지 확인합니다.</small></div></div>
+                <div className="setting-list">
+                  <div className="setting-row"><span><strong>전체 시즌 미리보기 채우기</strong><small>아래 기록에 12시즌이 추가됩니다. "이 결과 적용"으로 하나씩 확인하세요.</small></span><button className="button secondary" type="button" onClick={seedSeasonPreviewHistory}>채우기</button></div>
+                </div>
+              </section>
               <section className="settings-history">
                 <PersonalColorHistoryPanel history={personalColorHistory} current={personalColorResult} onApply={applyPersonalColorRecord} />
               </section>
