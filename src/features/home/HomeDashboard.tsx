@@ -94,7 +94,7 @@ export function HomeDashboard(props: {
             <button className="quick-card" type="button" onClick={props.openPersonal}>
               <span className="mini-icon"><Camera className="icon" /></span>
               <span>{result
-                ? <><strong>내 퍼스널 컬러 다시보기</strong><small>{seasonLabel} 결과를 다시 확인하세요</small></>
+                ? <><strong>퍼컬 다시보기</strong><small>{seasonLabel}</small></>
                 : <><strong>퍼스널 컬러 측정</strong><small>본인의 색을 찾으세요</small></>}</span>
             </button>
           </section>
