@@ -28,14 +28,15 @@ export function ShareCard({ profile, glassBackground, ref }: { profile: SeasonDi
       >
         <div style={{ position: 'absolute', inset: 64, display: 'flex', flexDirection: 'column' }}>
           <div style={{ position: 'relative', flex: 1 }}>
+            {/* CSS filter: blur()는 1080x1920 크기에서 html-to-image 래스터라이즈를 심하게 느리게(사실상 멈춘 것처럼) 만들어서,
+                blur 대신 그라디언트 자체의 부드러운 페이드(관대한 reach%)로만 은은한 느낌을 낸다. */}
             {glassBackground && (
               <div
                 style={{
                   position: 'absolute',
-                  inset: -100,
+                  inset: -60,
                   borderRadius: 140,
                   background: glassBackground,
-                  filter: 'blur(56px) saturate(120%)',
                 }}
               />
             )}

@@ -1,7 +1,7 @@
 // 퍼스널컬러 결과를 12계절 스펙트럼으로 보여주고 이전 진단 이력을 관리합니다.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import { Download, RotateCcw, Shirt } from 'lucide-react';
+import { Download, RotateCcw, Share2, Shirt, X } from 'lucide-react';
 import { Chip, ColorTileGrid, PanelTitle } from '../../components/common';
 import { SEASON_DETAILS } from '../../seasonContent';
 import type { FinalResult, SeasonId } from '../../types';
@@ -90,30 +90,44 @@ export function PersonalResult({
 
   const shareCardRef = useRef<HTMLDivElement>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
+  const [sharePreview, setSharePreview] = useState<{ dataUrl: string; fileName: string } | null>(null);
 
-  const handleSaveImage = async () => {
+  const handleOpenSharePreview = async () => {
     if (!shareCardRef.current || isSavingImage) return;
     setIsSavingImage(true);
     try {
-      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 1, cacheBust: true });
-      const fileName = buildShareFileName(profile.ko, new Date());
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], fileName, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'ColorFit', text: `${profile.ko} 퍼컬 결과` });
-          return;
-        } catch (shareError) {
-          if ((shareError as Error).name === 'AbortError') return;
-        }
-      }
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = fileName;
-      link.click();
+      // 기기/브라우저에 따라 캡처가 드물게 응답하지 않는 경우를 대비해 타임아웃을 둔다 —
+      // 무한정 "만드는 중…" 상태로 멈춰 있지 않도록 한다.
+      const capture = toPng(shareCardRef.current, { pixelRatio: 1, cacheBust: true, skipFonts: true });
+      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('capture-timeout')), 12000));
+      const dataUrl = await Promise.race([capture, timeout]);
+      setSharePreview({ dataUrl, fileName: buildShareFileName(profile.ko, new Date()) });
+    } catch {
+      window.alert('이미지를 만들지 못했어요. 다시 시도해주세요.');
     } finally {
       setIsSavingImage(false);
     }
+  };
+
+  const handleShareImage = async () => {
+    if (!sharePreview) return;
+    const blob = await (await fetch(sharePreview.dataUrl)).blob();
+    const file = new File([blob], sharePreview.fileName, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'ColorFit', text: `${profile.ko} 퍼컬 결과` });
+      } catch (shareError) {
+        if ((shareError as Error).name !== 'AbortError') throw shareError;
+      }
+    }
+  };
+
+  const handleDownloadImage = () => {
+    if (!sharePreview) return;
+    const link = document.createElement('a');
+    link.href = sharePreview.dataUrl;
+    link.download = sharePreview.fileName;
+    link.click();
   };
 
   return (
@@ -126,7 +140,7 @@ export function PersonalResult({
         </div>
         <div className="result-hero-actions">
           <button className="button secondary" type="button" onClick={onRetry}><RotateCcw className="icon" />다시 측정</button>
-          <button className="button secondary" type="button" onClick={handleSaveImage} disabled={isSavingImage}><Download className="icon" />{isSavingImage ? '저장 중…' : '이미지로 저장'}</button>
+          <button className="button secondary" type="button" onClick={handleOpenSharePreview} disabled={isSavingImage}><Download className="icon" />{isSavingImage ? '만드는 중…' : '이미지로 저장'}</button>
           {onOpenWardrobe && <button className="button primary" type="button" onClick={onOpenWardrobe}><Shirt className="icon" />옷장에 적용</button>}
         </div>
       </div>
@@ -134,6 +148,24 @@ export function PersonalResult({
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden="true">
         <ShareCard ref={shareCardRef} profile={profile} glassBackground={heroGlassBackground} />
       </div>
+
+      {sharePreview && (
+        <div className="share-preview-backdrop" role="presentation" onClick={() => setSharePreview(null)}>
+          <section className="share-preview-modal" role="dialog" aria-modal="true" aria-label="퍼컬 결과 이미지 미리보기" onClick={(event) => event.stopPropagation()}>
+            <div className="result-hero-head">
+              <strong>이미지 미리보기</strong>
+              <button className="line-button" type="button" onClick={() => setSharePreview(null)} aria-label="닫기"><X className="icon" /></button>
+            </div>
+            <div className="share-preview-image-wrap">
+              <img src={sharePreview.dataUrl} alt={profile.ko + ' 퍼컬 결과 카드'} />
+            </div>
+            <div className="share-preview-actions">
+              <button className="button secondary" type="button" onClick={handleDownloadImage}><Download className="icon" />저장하기</button>
+              <button className="button primary" type="button" onClick={handleShareImage}><Share2 className="icon" />공유하기</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <div className="result-liquid-layout">
         <section className="glass-panel liquid-result-hero">

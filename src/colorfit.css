@@ -3174,3 +3174,47 @@ textarea {
   background: #262b34;
   box-shadow: 0 10px 24px rgba(20, 22, 28, .22);
 }
+
+/* 퍼컬 결과 이미지 저장 — 캡처한 이미지를 보여주고 공유/저장을 고르는 미리보기 팝업. */
+.share-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 25, 32, .4);
+  backdrop-filter: blur(6px);
+}
+.share-preview-modal {
+  width: 100%;
+  max-width: 340px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 24px 60px rgba(20, 22, 28, .28);
+}
+.share-preview-image-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  max-height: 60vh;
+  background: var(--line);
+}
+.share-preview-image-wrap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.share-preview-actions {
+  display: flex;
+  gap: 10px;
+}
+.share-preview-actions .button {
+  flex: 1;
+}
