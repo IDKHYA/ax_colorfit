@@ -60,7 +60,9 @@ export function HomeDashboard(props: {
           </div>
           <div className="today-footer">
             <div className="today-state">
-              <span className="state-cell"><strong>{seasonLabel}</strong><small>퍼컬 결과</small></span>
+              <button className="state-cell state-cell--action" type="button" onClick={props.openPersonal}>
+                <strong>{seasonLabel}</strong><small>{result ? '퍼컬 결과 다시보기' : '퍼컬 측정하러 가기'}</small>
+              </button>
               <span className="state-cell"><strong>{props.scoredItems.length}벌</strong><small>등록된 아이템</small></span>
               <span className="state-cell"><strong>{props.recommendationCount}개</strong><small>추천 가능 조합</small></span>
             </div>
@@ -91,7 +93,9 @@ export function HomeDashboard(props: {
             </button>
             <button className="quick-card" type="button" onClick={props.openPersonal}>
               <span className="mini-icon"><Camera className="icon" /></span>
-              <span><strong>퍼스널 컬러 측정</strong><small>본인의 색을 찾으세요</small></span>
+              <span>{result
+                ? <><strong>내 퍼스널 컬러 다시보기</strong><small>{seasonLabel} 결과를 다시 확인하세요</small></>
+                : <><strong>퍼스널 컬러 측정</strong><small>본인의 색을 찾으세요</small></>}</span>
             </button>
           </section>
         </div>

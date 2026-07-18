@@ -154,6 +154,9 @@
     .state-cell { padding: 13px; border-radius: 13px; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.72); }
     .state-cell strong, .state-cell small { display: block; }
     .state-cell small { margin-top: 4px; color: var(--muted); }
+    button.state-cell { font: inherit; text-align: left; cursor: pointer; width: 100%; transition: background .18s ease, transform .18s ease; }
+    button.state-cell:hover { background: rgba(255,255,255,.86); transform: translateY(-1px); }
+    button.state-cell:active { transform: translateY(0); }
     .home-side { display: grid; gap: 18px; }
     .weather-panel { padding: 22px; display: grid; gap: 16px; min-height: 166px; }
     .weather-main { display: flex; align-items: center; justify-content: space-between; }
