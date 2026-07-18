@@ -57,14 +57,14 @@ export function HomeDashboard(props: {
             <span className="page-kicker">{weekday} · {temperature} · {seasonLabel}</span>
             <h1>{result ? '오늘은 ' + seasonLabel + '의 색으로 시작해볼까요?' : '오늘 입을 옷을 함께 정리해볼까요?'}</h1>
             <p>{result ? '퍼컬 결과와 현재 날씨, 등록한 옷을 함께 보고 오늘의 조합을 만듭니다.' : '퍼컬을 진단하거나 옷을 먼저 등록하면 실제 옷장으로 조합을 만들 수 있습니다.'}</p>
-            <div>
-              <button className="button primary" type="button" onClick={() => props.go('recommend')}><Sparkles className="icon" />오늘 추천 받기</button>
-            </div>
           </div>
-          <div className="today-state">
-            <span className="state-cell"><strong>{seasonLabel}</strong><small>퍼컬 결과</small></span>
-            <span className="state-cell"><strong>{props.scoredItems.length}벌</strong><small>등록된 아이템</small></span>
-            <span className="state-cell"><strong>{props.recommendationCount}개</strong><small>추천 가능 조합</small></span>
+          <div className="today-footer">
+            <div className="today-state">
+              <span className="state-cell"><strong>{seasonLabel}</strong><small>퍼컬 결과</small></span>
+              <span className="state-cell"><strong>{props.scoredItems.length}벌</strong><small>등록된 아이템</small></span>
+              <span className="state-cell"><strong>{props.recommendationCount}개</strong><small>추천 가능 조합</small></span>
+            </div>
+            <button className="button primary today-cta" type="button" onClick={() => props.go('recommend')}><Sparkles className="icon" />오늘 추천 받기</button>
           </div>
         </section>
 
