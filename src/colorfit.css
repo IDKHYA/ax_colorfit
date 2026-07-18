@@ -3152,3 +3152,16 @@ textarea {
     border-radius: 999px; background: #fff; color: var(--ink); font-weight: 750; font-size: 12px;
   }
 }
+
+/* 공통 primary 버튼 정제 — 채도 높은 곤색 그라디언트/파란 글로우 대신 차분한 딥 잉크 + 중립 그림자로.
+   여러 미디어쿼리 재정의를 확실히 덮도록 파일 맨 끝에 둔다. */
+.button.primary,
+.nav-button.active {
+  background: #1b1f27;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(20, 22, 28, .16);
+}
+.button.primary:hover {
+  background: #262b34;
+  box-shadow: 0 10px 24px rgba(20, 22, 28, .22);
+}
