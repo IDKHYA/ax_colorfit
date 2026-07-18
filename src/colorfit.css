@@ -169,6 +169,7 @@
     .saved-preview { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; }
     .look-thumb { position: relative; aspect-ratio: 3/4; overflow: hidden; border-radius: 12px; background: #f5f2ec; border: 1px solid var(--line); }
     .look-thumb img { position: absolute; width: 54%; height: 45%; object-fit: contain; filter: drop-shadow(0 7px 8px rgba(0,0,0,.08)); }
+    .look-thumb img.look-thumb-full { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: none; }
 
     /* Personal */
     .personal-shell { display: grid; grid-template-columns: minmax(320px,.9fr) minmax(480px,1.1fr); gap: 18px; align-items: stretch; }

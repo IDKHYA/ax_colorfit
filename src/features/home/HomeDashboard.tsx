@@ -33,6 +33,9 @@ export function HomeDashboard(props: {
     [result?.seasonTop1Id, glassSeed],
   );
   const latestOutfit = props.savedOutfits[0];
+  // 데일리룩은 완성 PNG(dailyLookState.confirmedImage)를 우선 보여준다. 옷장이 비었거나 itemIds가
+  // 현재 옷장과 매칭되지 않아도 사용자가 만든 결과가 그대로 보이도록 하기 위해서다.
+  const latestCompletedImage = latestOutfit?.dailyLookState?.confirmedImage;
   const latestItems = latestOutfit?.itemIds
     .map((id) => props.scoredItems.find((item) => item.id === id))
     .filter((item): item is ScoredClothingItem => Boolean(item)) ?? [];
@@ -124,9 +127,11 @@ export function HomeDashboard(props: {
           </div>
           <div className="saved-preview">
             <div className="look-thumb" aria-label={latestOutfit ? latestOutfit.title + ' 미리보기' : '저장 룩 없음'}>
-              {latestItems.slice(0, 3).map((item, index) => (
-                <img key={item.id} src={clothingDisplayImage(item)} alt="" style={{ left: index === 0 ? '5%' : undefined, right: index > 0 ? (4 + (index - 1) * 18) + '%' : undefined, top: index === 0 ? '4%' : undefined, bottom: index > 0 ? (5 + (index - 1) * 16) + '%' : undefined }} />
-              ))}
+              {latestCompletedImage
+                ? <img className="look-thumb-full" src={latestCompletedImage} alt="" />
+                : latestItems.slice(0, 3).map((item, index) => (
+                  <img key={item.id} src={clothingDisplayImage(item)} alt="" style={{ left: index === 0 ? '5%' : undefined, right: index > 0 ? (4 + (index - 1) * 18) + '%' : undefined, top: index === 0 ? '4%' : undefined, bottom: index > 0 ? (5 + (index - 1) * 16) + '%' : undefined }} />
+                ))}
               {!latestOutfit && <span className="look-thumb-empty"><Bookmark className="icon" /></span>}
             </div>
             <div>
