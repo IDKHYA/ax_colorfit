@@ -2094,6 +2094,12 @@
 .question-dots i.active { width: 22px; border-radius: 999px; background: var(--navy); }
 
 .colorfit-personal-result { display: grid; gap: 18px; }
+/* 그리드 아이템(특히 season-browser 안 season-family-grid 같은 가로 flex/overflow 영역)이
+   자기 컨텐츠 min-content 크기만큼 그리드 트랙을 밀어 넓혀서 모바일에서 가로 스크롤이 생기는
+   문제를 막는다. min-width:0으로 트랙 폭을 부모(뷰포트) 폭 이내로 강제한다. */
+.colorfit-personal-result > * { min-width: 0; }
+.result-liquid-layout > * { min-width: 0; }
+.result-insight-stack > * { min-width: 0; }
 .palette-head small,
 .result-score-head small { display: block; margin-top: 3px; color: var(--muted); }
 .season-ko small { color: var(--muted); font-size: 11px; }
