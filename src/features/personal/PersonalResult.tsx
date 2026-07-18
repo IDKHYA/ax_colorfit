@@ -8,6 +8,7 @@ import type { PersonalColorRecord } from '../../wardrobeTypes';
 import { SEASON_LABELS } from '../../wardrobeConstants';
 import { SEASON_DISPLAY } from './seasonDisplay';
 import { buildSeasonGlassBackground } from './seasonGlass';
+import { pickDiversePaletteColors } from './paletteSample';
 
 const SEASON_FAMILIES: Array<{ title: string; color: string; ids: SeasonId[] }> = [
   { title: 'SPRING · WARM/CLEAR', color: '#FF9C64', ids: ['light-spring', 'true-spring', 'bright-spring'] },
@@ -226,7 +227,7 @@ export function PersonalColorHistoryPanel({ history, current, onApply }: { histo
               <article className={isCurrent ? 'history-card current' : 'history-card'} key={record.id}>
                 <button className="history-card-main" type="button" onClick={() => setSelectedRecord(record)}>
                   <span><small>{new Date(record.measuredAt).toLocaleString('ko-KR')}</small><strong>{SEASON_LABELS[recordResult.seasonTop1Id]}</strong><em>2순위 {SEASON_LABELS[recordResult.seasonTop2Id]}</em></span>
-                  <span className="mini-palette">{recordResult.palette.slice(0, 5).map((hex, idx) => <Chip key={hex + '-' + idx} hex={hex} />)}</span>
+                  <span className="mini-palette">{pickDiversePaletteColors(recordResult.palette, 5).map((hex, idx) => <Chip key={hex + '-' + idx} hex={hex} />)}</span>
                 </button>
                 <div className="history-actions">
                   <button className="line-button" type="button" onClick={() => setSelectedRecord(record)}>자세히 보기</button>
@@ -245,7 +246,7 @@ export function PersonalColorHistoryPanel({ history, current, onApply }: { histo
               <button className="line-button" type="button" onClick={() => setSelectedRecord(null)}>닫기</button>
             </div>
             <p>{selectedSeason.summary}</p>
-            <section><h4>잘 어울리는 색상</h4><ColorTileGrid colors={selectedResult.palette.slice(0, 10)} compact /></section>
+            <section><h4>잘 어울리는 색상</h4><ColorTileGrid colors={pickDiversePaletteColors(selectedResult.palette, 10)} compact /></section>
             <section><h4>주의할 색상</h4><ColorTileGrid colors={selectedSeason.worstColors} compact /></section>
             <div className="history-detail-actions"><button className="black-button" type="button" onClick={() => { onApply(selectedRecord); setSelectedRecord(null); }}>이 결과 적용</button></div>
           </section>
