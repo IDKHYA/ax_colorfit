@@ -17,6 +17,7 @@ export interface UrlIngestApiResult {
   bytesRead: number;
   nextStep: 'prepare-image-analysis' | 'manual-image-url-fallback';
   representativeImageUrl: string | null;
+  candidateImageUrls: string[];
   productTitle: string | null;
   parserStrategy: 'direct-image' | 'og-image' | 'json-ld-product' | 'largest-image' | 'none';
 }

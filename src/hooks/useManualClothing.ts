@@ -10,6 +10,7 @@ export interface UrlImportState {
   url: string;
   status: 'idle' | 'processing' | 'done' | 'error';
   result: UrlIngestApiResult | null;
+  selectedImageUrl: string | null;
   error: string;
   adoptStatus: 'idle' | 'processing' | 'error';
   adoptError: string;
@@ -42,7 +43,7 @@ export function useManualClothing() {
     sourceType: 'upload' as 'upload' | 'url',
     sourceRef: '',
   });
-  const [urlImport, setUrlImport] = useState<UrlImportState>({ url: '', status: 'idle', result: null, error: '', adoptStatus: 'idle', adoptError: '' });
+  const [urlImport, setUrlImport] = useState<UrlImportState>({ url: '', status: 'idle', result: null, selectedImageUrl: null, error: '', adoptStatus: 'idle', adoptError: '' });
   const [backgroundRemoveStatus, setBackgroundRemoveStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const [backgroundRemoveError, setBackgroundRemoveError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,26 +196,32 @@ export function useManualClothing() {
       setUrlImport((prev) => ({ ...prev, status: 'error', result: null, error: '쇼핑몰 상품 주소나 이미지 주소를 입력해 주세요.' }));
       return;
     }
-    setUrlImport((prev) => ({ ...prev, url, status: 'processing', result: null, error: '', adoptStatus: 'idle', adoptError: '' }));
+    setUrlImport((prev) => ({ ...prev, url, status: 'processing', result: null, selectedImageUrl: null, error: '', adoptStatus: 'idle', adoptError: '' }));
     try {
       const result = await requestUrlIngest(url);
-      setUrlImport((prev) => ({ ...prev, status: 'done', result, error: '' }));
+      setUrlImport((prev) => ({ ...prev, status: 'done', result, selectedImageUrl: result.representativeImageUrl, error: '' }));
     } catch (error) {
       setUrlImport((prev) => ({
         ...prev,
         status: 'error',
         result: null,
+        selectedImageUrl: null,
         error: error instanceof Error ? error.message : '주소 분석에 실패했습니다.',
       }));
     }
   };
 
-  // URL 분석 결과의 대표 이미지를 서버 프록시로 내려받아 사진 업로드와 같은 자동 분석 경로에 태웁니다.
+  // 후보 이미지 갤러리에서 사용자가 다른 사진(흰 배경 단독컷 등)을 고르면 그 이미지를 채택 대상으로 바꾼다.
+  const selectUrlImportImage = (imageUrl: string) => {
+    setUrlImport((prev) => ({ ...prev, selectedImageUrl: imageUrl }));
+  };
+
+  // URL 분석 결과에서 사용자가 고른 이미지를 서버 프록시로 내려받아 사진 업로드와 같은 자동 분석 경로에 태웁니다.
   // 반환값은 "이미지를 성공적으로 가져왔는지"만 나타낸다. 그 이후 색상·분류 자동 분석 실패는
   // backgroundRemoveStatus/backgroundRemoveError로 별도 노출되고 사진 업로드와 동일하게 복구한다.
   const adoptUrlImage = async (): Promise<boolean> => {
     const result = urlImport.result;
-    const imageSource = result?.representativeImageUrl;
+    const imageSource = urlImport.selectedImageUrl ?? result?.representativeImageUrl;
     if (!result || !imageSource) return false;
     setUrlImport((prev) => ({ ...prev, adoptStatus: 'processing', adoptError: '' }));
     try {
@@ -261,6 +268,7 @@ export function useManualClothing() {
     removeManualBackground,
     extractManualClothingPrecisely,
     analyzeUrlImport,
+    selectUrlImportImage,
     adoptUrlImage,
     handleManualCategory,
   };

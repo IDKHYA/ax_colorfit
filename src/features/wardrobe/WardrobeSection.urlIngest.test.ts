@@ -23,6 +23,14 @@ describe('WardrobeSection URL ingest entry', () => {
     expect(source).toContain('url-ingest-thumbnail');
   });
 
+  it('후보 이미지가 여러 장이면 갤러리로 보여주고 선택할 수 있게 한다', () => {
+    const source = readFileSync(join(process.cwd(), 'src/features/wardrobe/WardrobeSection.tsx'), 'utf8');
+
+    expect(source).toContain('candidateImageUrls');
+    expect(source).toContain('url-ingest-gallery');
+    expect(source).toContain('onSelectUrlImage');
+  });
+
   it('대표 이미지를 초안으로 넘기는 진입점을 둔다', () => {
     const source = readFileSync(join(process.cwd(), 'src/features/wardrobe/WardrobeSection.tsx'), 'utf8');
 

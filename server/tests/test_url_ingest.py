@@ -215,6 +215,63 @@ class UrlIngestServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.parser_strategy, "largest-image")
         self.assertEqual(result.next_step, "prepare-image-analysis")
 
+    async def test_collects_multiple_candidate_images_from_gallery(self):
+        html_body = b"""
+        <html>
+          <head>
+            <meta property="og:image" content="/images/model-wearing.jpg">
+            <meta property="og:image" content="/images/flat-lay.jpg">
+          </head>
+          <body>
+            <img src="/icons/badge.png" width="24" height="24" alt="badge">
+            <img src="/images/detail-1.jpg" width="900" height="1200" alt="detail">
+          </body>
+        </html>
+        """
+        fetcher = FakeFetcher({
+            "https://shop.example/item": FetchedResponse(
+                url="https://shop.example/item",
+                status_code=200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                body=html_body,
+            ),
+        })
+
+        result = await ingest_url(
+            "https://shop.example/item",
+            fetcher=fetcher,
+            resolver=resolver_for({"shop.example": ["93.184.216.34"]}),
+        )
+
+        self.assertEqual(result.representative_image_url, "https://shop.example/images/model-wearing.jpg")
+        self.assertEqual(
+            list(result.candidate_image_urls),
+            [
+                "https://shop.example/images/model-wearing.jpg",
+                "https://shop.example/images/flat-lay.jpg",
+                "https://shop.example/images/detail-1.jpg",
+            ],
+        )
+        self.assertNotIn("https://shop.example/icons/badge.png", result.candidate_image_urls)
+
+    async def test_direct_image_response_returns_itself_as_only_candidate(self):
+        fetcher = FakeFetcher({
+            "https://cdn.example/item.jpg": FetchedResponse(
+                url="https://cdn.example/item.jpg",
+                status_code=200,
+                headers={"content-type": "image/jpeg"},
+                body=b"fake-image",
+            ),
+        })
+
+        result = await ingest_url(
+            "https://cdn.example/item.jpg",
+            fetcher=fetcher,
+            resolver=resolver_for({"cdn.example": ["93.184.216.35"]}),
+        )
+
+        self.assertEqual(list(result.candidate_image_urls), ["https://cdn.example/item.jpg"])
+
     async def test_html_without_image_returns_manual_fallback(self):
         html_body = b"<html><head><meta property='og:title' content='Only title'></head><body></body></html>"
         fetcher = FakeFetcher({
@@ -328,6 +385,7 @@ class UrlIngestRouteTest(unittest.TestCase):
         self.assertEqual(payload["sourceRef"], "https://shop.example/item")
         self.assertEqual(payload["representativeImageUrl"], "https://shop.example/item")
         self.assertEqual(payload["parserStrategy"], "direct-image")
+        self.assertEqual(payload["candidateImageUrls"], ["https://shop.example/item"])
 
     def test_post_ingest_image_returns_image_bytes(self):
         fetcher = FakeFetcher({

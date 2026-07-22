@@ -68,6 +68,7 @@ export function WardrobeSection(props: {
   urlImport: UrlImportState;
   setUrlImport: React.Dispatch<React.SetStateAction<UrlImportState>>;
   onAnalyzeUrl: () => void;
+  onSelectUrlImage: (imageUrl: string) => void;
   onAdoptUrlImage: () => Promise<boolean>;
   onCategory: (category: ClothingCategory) => void;
   onSaveManual: () => void;
@@ -522,6 +523,7 @@ function ManualAdd(props: {
   urlImport: UrlImportState;
   setUrlImport: React.Dispatch<React.SetStateAction<UrlImportState>>;
   onAnalyzeUrl: () => void;
+  onSelectUrlImage: (imageUrl: string) => void;
   onAdoptUrlImage: () => Promise<boolean>;
   onCategory: (category: ClothingCategory) => void;
   onSaveManual: () => void;
@@ -536,6 +538,7 @@ function ManualAdd(props: {
   const selectedColorMeta = colorMetaForInput(props.manual.color);
   const structuredMeta = buildColorMeta(props.manual.category, props.manual.type, props.manual.color, detectedColors, props.manual.brand);
   const urlResult = props.urlImport.result;
+  const selectedUrlImage = props.urlImport.selectedImageUrl ?? urlResult?.representativeImageUrl ?? null;
   const selectedInsight = selectedInsightHex && props.personalColorResult
     ? buildColorInsight({ hex: selectedInsightHex, seasonId: props.personalColorResult.seasonTop1Id, sourceLabel: '옷 추가 · 이미지 분석' })
     : null;
@@ -629,8 +632,25 @@ function ManualAdd(props: {
                 <div className="url-ingest-result">
                   <strong>{urlResult.representativeImageUrl ? '대표 이미지를 찾았습니다.' : '대표 이미지를 찾지 못했습니다.'}</strong>
                   {urlResult.productTitle && <p>{urlResult.productTitle}</p>}
-                  {urlResult.representativeImageUrl && <img className="url-ingest-thumbnail" src={urlResult.representativeImageUrl} alt={urlResult.productTitle ?? '대표 이미지 미리보기'} />}
-                  {urlResult.representativeImageUrl ? (
+                  {selectedUrlImage && <img className="url-ingest-thumbnail" src={selectedUrlImage} alt={urlResult.productTitle ?? '대표 이미지 미리보기'} />}
+                  {urlResult.candidateImageUrls.length > 1 && (
+                    <div className="url-ingest-gallery" role="listbox" aria-label="가져온 이미지 후보">
+                      {urlResult.candidateImageUrls.map((candidateUrl) => (
+                        <button
+                          key={candidateUrl}
+                          type="button"
+                          role="option"
+                          aria-selected={candidateUrl === selectedUrlImage}
+                          className={candidateUrl === selectedUrlImage ? 'url-ingest-gallery-item active' : 'url-ingest-gallery-item'}
+                          onClick={() => props.onSelectUrlImage(candidateUrl)}
+                        >
+                          <img src={candidateUrl} alt="후보 이미지" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {urlResult.candidateImageUrls.length > 1 && <p className="manual-helper">흰 배경 단독컷처럼 분석에 적합한 사진을 골라주세요.</p>}
+                  {selectedUrlImage ? (
                     <button className="button primary" type="button" disabled={props.urlImport.adoptStatus === 'processing' || props.backgroundRemoveStatus === 'processing'} onClick={handleAdoptUrlImage}>
                       {props.urlImport.adoptStatus === 'processing' ? '이미지 가져오는 중' : props.backgroundRemoveStatus === 'processing' ? '사진 분석 중' : '이 이미지 분석하기'}
                     </button>

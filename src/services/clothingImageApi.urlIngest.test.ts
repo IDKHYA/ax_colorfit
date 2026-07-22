@@ -18,6 +18,7 @@ describe('requestUrlIngest', () => {
         bytesRead: 512,
         nextStep: 'prepare-image-analysis',
         representativeImageUrl: 'https://shop.example/images/main.jpg',
+        candidateImageUrls: ['https://shop.example/images/main.jpg', 'https://shop.example/images/detail.jpg'],
         productTitle: '뮤트 블루 린넨 셔츠',
         parserStrategy: 'og-image',
       }),
@@ -35,6 +36,7 @@ describe('requestUrlIngest', () => {
     expect(result.kind).toBe('html');
     expect(result.nextStep).toBe('prepare-image-analysis');
     expect(result.representativeImageUrl).toBe('https://shop.example/images/main.jpg');
+    expect(result.candidateImageUrls).toEqual(['https://shop.example/images/main.jpg', 'https://shop.example/images/detail.jpg']);
     expect(result.productTitle).toBe('뮤트 블루 린넨 셔츠');
     expect(result.parserStrategy).toBe('og-image');
   });

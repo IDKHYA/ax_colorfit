@@ -52,8 +52,9 @@ class UrlIngestResult:
     representative_image_url: str | None
     product_title: str | None
     parser_strategy: ParserStrategy
+    candidate_image_urls: tuple[str, ...] = ()
 
-    def to_api_payload(self) -> dict[str, str | int | None]:
+    def to_api_payload(self) -> dict[str, str | int | None | list[str]]:
         return {
             "kind": self.kind,
             "sourceType": self.source_type,
@@ -65,6 +66,7 @@ class UrlIngestResult:
             "representativeImageUrl": self.representative_image_url,
             "productTitle": self.product_title,
             "parserStrategy": self.parser_strategy,
+            "candidateImageUrls": list(self.candidate_image_urls),
         }
 
 
@@ -73,6 +75,7 @@ class ParsedProductPage:
     representative_image_url: str | None
     product_title: str | None
     parser_strategy: ParserStrategy
+    candidate_image_urls: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -138,6 +141,11 @@ async def _fetch_following_redirects(
             continue
 
         if response.status_code >= 400:
+            if response.status_code in {401, 403, 429}:
+                raise IngestError(
+                    "이 쇼핑몰은 자동 가져오기를 차단하고 있습니다. "
+                    "대표 이미지 주소를 직접 입력하거나 사진을 업로드해 주세요."
+                )
             raise IngestError(f"원격 서버가 {response.status_code} 상태를 반환했습니다.")
         if len(response.body) > config.max_bytes:
             raise IngestBlockedError("응답 크기가 제한을 초과했습니다.")
@@ -173,6 +181,7 @@ async def ingest_url(
             representative_image_url=response.url,
             product_title=None,
             parser_strategy="direct-image",
+            candidate_image_urls=(response.url,),
         )
 
     if media_type in {"text/html", "application/xhtml+xml"}:
@@ -188,6 +197,7 @@ async def ingest_url(
             representative_image_url=parsed.representative_image_url,
             product_title=parsed.product_title,
             parser_strategy=parsed.parser_strategy,
+            candidate_image_urls=parsed.candidate_image_urls,
         )
 
     raise IngestBlockedError("지원하지 않는 Content-Type입니다.")
@@ -263,6 +273,7 @@ class _ProductHtmlParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.og_image: str | None = None
+        self.og_images: list[str] = []
         self.og_title: str | None = None
         self.json_ld_chunks: list[str] = []
         self.images: list[dict[str, str]] = []
@@ -274,8 +285,10 @@ class _ProductHtmlParser(HTMLParser):
         if tag == "meta":
             prop = (attr_map.get("property") or attr_map.get("name") or "").lower()
             content = attr_map.get("content", "").strip()
-            if prop == "og:image" and content and not self.og_image:
-                self.og_image = content
+            if prop in {"og:image", "og:image:secure_url"} and content:
+                if not self.og_image:
+                    self.og_image = content
+                self.og_images.append(content)
             elif prop == "og:title" and content and not self.og_title:
                 self.og_title = content
         elif tag == "img":
@@ -303,13 +316,17 @@ class _ProductHtmlParser(HTMLParser):
                 self.json_ld_chunks.append(chunk)
 
 
+MAX_CANDIDATE_IMAGES = 12
+MIN_CANDIDATE_DIMENSION = 64
+
+
 def parse_product_page(html_text: str, base_url: str) -> ParsedProductPage:
     """og:image → JSON-LD Product → 최대 이미지 휴리스틱 순서로 대표 이미지를 찾습니다."""
     parser = _ProductHtmlParser()
     parser.feed(html_text)
     parser.close()
 
-    json_ld_image, json_ld_name = _find_json_ld_product(parser.json_ld_chunks)
+    json_ld_image, json_ld_name, json_ld_images = _find_json_ld_product(parser.json_ld_chunks)
 
     image_url: str | None = None
     image_alt: str | None = None
@@ -327,14 +344,49 @@ def parse_product_page(html_text: str, base_url: str) -> ParsedProductPage:
             image_alt = largest["alt"] or None
             strategy = "largest-image"
 
+    candidate_srcs = [*parser.og_images, *json_ld_images, *_gallery_image_srcs(parser.images)]
+    candidate_image_urls = _resolve_and_dedupe(candidate_srcs, base_url)
+
     return ParsedProductPage(
         representative_image_url=urljoin(base_url, image_url) if image_url else None,
         product_title=parser.og_title or json_ld_name or image_alt,
         parser_strategy=strategy,
+        candidate_image_urls=candidate_image_urls,
     )
 
 
-def _find_json_ld_product(chunks: list[str]) -> tuple[str | None, str | None]:
+def _gallery_image_srcs(images: list[dict[str, str]]) -> list[str]:
+    """아이콘/썸네일로 보이는 아주 작은 이미지는 후보에서 제외합니다."""
+    kept = []
+    for image in images:
+        width = _dimension(image["width"])
+        height = _dimension(image["height"])
+        if width and height and (width < MIN_CANDIDATE_DIMENSION or height < MIN_CANDIDATE_DIMENSION):
+            continue
+        kept.append(image["src"])
+    return kept
+
+
+def _resolve_and_dedupe(srcs: list[str], base_url: str) -> tuple[str, ...]:
+    seen: set[str] = set()
+    resolved: list[str] = []
+    for src in srcs:
+        if not src:
+            continue
+        absolute = urljoin(base_url, src)
+        if absolute in seen:
+            continue
+        seen.add(absolute)
+        resolved.append(absolute)
+        if len(resolved) >= MAX_CANDIDATE_IMAGES:
+            break
+    return tuple(resolved)
+
+
+def _find_json_ld_product(chunks: list[str]) -> tuple[str | None, str | None, list[str]]:
+    all_images: list[str] = []
+    first_image: str | None = None
+    first_name: str | None = None
     for chunk in chunks:
         try:
             data = json.loads(chunk)
@@ -344,16 +396,24 @@ def _find_json_ld_product(chunks: list[str]) -> tuple[str | None, str | None]:
         if not product:
             continue
         image = product.get("image")
+        image_list: list[str] = []
         if isinstance(image, list):
-            image = next((item for item in image if isinstance(item, str) and item.strip()), None)
-        if isinstance(image, dict):
-            image = image.get("url")
+            image_list = [item for item in image if isinstance(item, str) and item.strip()]
+        elif isinstance(image, dict):
+            url = image.get("url")
+            if isinstance(url, str) and url.strip():
+                image_list = [url]
+        elif isinstance(image, str) and image.strip():
+            image_list = [image]
+        all_images.extend(item.strip() for item in image_list)
+
         name = product.get("name")
-        image_text = image.strip() if isinstance(image, str) and image.strip() else None
         name_text = name.strip() if isinstance(name, str) and name.strip() else None
-        if image_text or name_text:
-            return image_text, name_text
-    return None, None
+        if first_image is None and image_list:
+            first_image = image_list[0].strip()
+        if first_name is None and name_text:
+            first_name = name_text
+    return first_image, first_name, all_images
 
 
 def _find_product_node(node: Any) -> dict[str, Any] | None:

@@ -240,7 +240,7 @@ function App() {
   const weatherState = useWeather();
   const [weatherBand, setWeatherBand] = useState<RecommendationWeatherBand>('20~22도');
   const [weatherTouched, setWeatherTouched] = useState(false);
-  const { manual, setManual, urlImport, setUrlImport, fileInputRef, cameraInputRef, backgroundRemoveStatus, backgroundRemoveError, handleFileChange, removeManualBackground, extractManualClothingPrecisely, analyzeUrlImport, adoptUrlImage, handleManualCategory } = useManualClothing();
+  const { manual, setManual, urlImport, setUrlImport, fileInputRef, cameraInputRef, backgroundRemoveStatus, backgroundRemoveError, handleFileChange, removeManualBackground, extractManualClothingPrecisely, analyzeUrlImport, selectUrlImportImage, adoptUrlImage, handleManualCategory } = useManualClothing();
 
   useEffect(() => {
     if (!weatherTouched && weatherState.data) setWeatherBand(weatherState.data.weatherBand);
@@ -577,6 +577,7 @@ function App() {
               urlImport={urlImport}
               setUrlImport={setUrlImport}
               onAnalyzeUrl={analyzeUrlImport}
+              onSelectUrlImage={selectUrlImportImage}
               onAdoptUrlImage={adoptUrlImage}
             />
           )}
