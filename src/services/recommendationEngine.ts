@@ -618,7 +618,7 @@ export function diversifyRecommendations(outfits: OutfitRecommendation[], maxPer
 function scoreOutfit(outfitItems: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode, result: FinalResult | null): OutfitRecommendation {
   const personalScore = Math.round(outfitItems.reduce((sum, item) => sum + (item.personalFitScore ?? 55), 0) / outfitItems.length);
   const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
-  const harmonyScore = calculateHarmonyScore(outfitItems, result);
+  const harmonyScore = Math.round(calculateHarmonyScore(outfitItems, result));
   const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
   const weights = resolveScoreWeights(result);
   const scoreBreakdown = {
