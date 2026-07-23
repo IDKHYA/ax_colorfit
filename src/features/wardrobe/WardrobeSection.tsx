@@ -510,6 +510,7 @@ function CatalogPreviewView(props: {
 function ManualAdd(props: {
   setView: (view: WardrobeView) => void;
   onBack: () => void;
+  onOpenCatalog: (mode: 'create' | 'append') => void;
   personalColorResult: FinalResult | null;
   manual: any;
   setManual: React.Dispatch<React.SetStateAction<any>>;
@@ -590,6 +591,7 @@ function ManualAdd(props: {
           <div className="source-tabs" role="tablist" aria-label="의류 입력 방식">
             <button className={inputMode === 'upload' ? 'source-tab active' : 'source-tab'} type="button" aria-selected={inputMode === 'upload'} onClick={() => setInputMode('upload')}>사진 업로드</button>
             <button className={inputMode === 'url' ? 'source-tab active' : 'source-tab'} type="button" aria-selected={inputMode === 'url'} onClick={() => setInputMode('url')}>URL 가져오기</button>
+            <button className="source-tab source-tab--catalog" type="button" aria-selected={false} onClick={() => props.onOpenCatalog('append')}>카탈로그에서 고르기</button>
           </div>
 
           {inputMode === 'upload' ? (

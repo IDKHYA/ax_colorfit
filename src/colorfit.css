@@ -250,9 +250,11 @@
     /* Add */
     .add-layout { display: grid; grid-template-columns: minmax(360px,.85fr) minmax(520px,1.15fr); gap: 18px; }
     .upload-panel { padding: 20px; }
-    .source-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-    .source-tab { min-height: 40px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-weight: 750; }
+    .source-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .source-tab { min-height: 40px; padding: 0 6px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-weight: 750; }
     .source-tab.active { background: var(--navy); color: #fff; }
+    /* 카탈로그 탭은 입력 방식이 아니라 준비된 옷 고르기 화면으로 이동하는 진입점이라 살짝 구분해 준다. */
+    .source-tab--catalog { border-style: dashed; border-color: var(--navy); color: var(--navy); }
     .upload-preview { position: relative; display: grid; place-items: center; min-height: 480px; overflow: hidden; border-radius: 16px; background: #eef0f0; }
     .upload-preview img { width: 100%; height: 480px; object-fit: cover; }
     .analysis-badge { position: absolute; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; background: rgba(255,255,255,.82); backdrop-filter: blur(9px); padding: 8px 11px; font-weight: 750; }
