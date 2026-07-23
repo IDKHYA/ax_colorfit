@@ -21,6 +21,12 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(home).toContain('props.openPersonal');
     expect(home).toContain("props.go('wardrobe')");
     expect(home).toContain("props.go('saved')");
+    expect(home).toContain('showFirstUseGuide');
+    expect(home).toContain('first-use-guide');
+    expect(home).toContain('두 가지만 준비하면 추천을 볼 수 있어요.');
+    expect(app).toContain("!clothingItems.some((item) => item.category === '상의')");
+    expect(app).toContain("!clothingItems.some((item) => item.category === '하의')");
+    expect(app).toContain('firstUsePreparationIncomplete && !firstUseGuideDismissed');
     expect(app).toContain("analysisStep: personalColorResult ? 'result' : 'photo'");
     expect(app).toContain('mobile-header-spacer');
   });
@@ -55,6 +61,7 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(result).toContain('result-liquid-layout');
     expect(result).toContain('liquid-result-hero');
     expect(result).toContain('season-family-grid');
+    expect(result).not.toContain('신뢰도 {Math.round(result.confidence * 100)}%');
   });
 
   it('옷장은 준비도 파생값을 제거하고 분석 우선 등록과 공용 색상 레이어를 사용한다', () => {
@@ -85,6 +92,8 @@ describe('ColorFit V5 Exact 통합 계약', () => {
 
     expect(recommendation).toContain('criteria-panel');
     expect(recommendation).toContain('best-outfit');
+    expect(recommendation).toContain("'--combo-a': group.topHex");
+    expect(recommendation).toContain("'--combo-b': group.bottomHex");
     expect(recommendation).not.toContain('추천 점수 진단');
     expect(saved).toContain('vault-head');
     expect(saved).toContain('folder-row');
@@ -106,6 +115,10 @@ describe('ColorFit V5 Exact 통합 계약', () => {
     expect(css).toContain('body.chromatic-mode');
     expect(css).toContain('.color-insight-overlay');
     expect(css).toContain('.home-layout');
+    expect(css).toContain('.home-layout { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; }');
+    expect(css).toContain('.colorfit-home .home-layout,');
+    expect(css).toContain('display: contents;');
+    expect(css).toContain('.colorfit-recommend .color-combo-pill[style].active');
     expect(css).toContain('.manual-edit-sheet');
     expect(css).toContain("font-family: 'Pretendard'");
   });

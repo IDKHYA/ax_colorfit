@@ -3232,3 +3232,506 @@ textarea {
 .share-preview-actions .button {
   flex: 1;
 }
+
+/* 첫 사용자 안내는 공통 상태를 사용하지만 데스크톱의 기존 홈 열 구조는 변경하지 않습니다. */
+.home-mobile-copy,
+.home-mobile-recommend {
+  display: none;
+}
+
+.first-use-guide {
+  margin-top: 18px;
+  padding: 22px;
+  border-color: rgba(7, 29, 112, .14);
+}
+
+.first-use-guide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.first-use-guide-head > div:first-child {
+  display: grid;
+  gap: 7px;
+}
+
+.first-use-guide-head p {
+  font-size: 13px;
+}
+
+.first-use-guide-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.first-use-guide-status strong {
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  height: 38px;
+  border-radius: 999px;
+  background: #eef1ff;
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.first-use-guide-status button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--muted);
+}
+
+.first-use-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.first-use-step {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+button.first-use-step {
+  cursor: pointer;
+}
+
+.first-use-step.is-current {
+  border-color: rgba(7, 29, 112, .3);
+  background: #f4f6ff;
+  box-shadow: inset 0 0 0 1px rgba(7, 29, 112, .04);
+}
+
+.first-use-step.is-complete {
+  background: #f7f8f8;
+}
+
+.first-use-step-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #edf0f3;
+  color: #68707d;
+  font-weight: 850;
+}
+
+.first-use-step.is-current .first-use-step-number {
+  background: var(--navy);
+  color: #fff;
+}
+
+.first-use-step.is-complete .first-use-step-number {
+  background: #e4eee9;
+  color: #356552;
+}
+
+.first-use-step-number .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.first-use-step > span:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
+.first-use-step small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.first-use-step em {
+  color: var(--navy);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.first-use-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.first-use-details summary {
+  width: fit-content;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.first-use-details p {
+  max-width: 780px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+/* 모바일은 목업의 탐색 우선순위를 따르고 861px 이상 규칙은 건드리지 않습니다. */
+@media (max-width: 860px) {
+  body:not(.chromatic-mode) {
+    background: #eef1f4;
+  }
+
+  .colorfit-home {
+    display: grid;
+    gap: 12px;
+  }
+
+  .colorfit-home .home-layout,
+  .colorfit-home .home-side,
+  .colorfit-home .home-lower {
+    display: contents;
+  }
+
+  .colorfit-home .today-panel {
+    order: 1;
+    min-height: 0;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, .88);
+    border-radius: 24px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, .8), rgba(239, 243, 250, .56)),
+      rgba(247, 249, 252, .72);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .96),
+      inset 0 -1px 0 rgba(255, 255, 255, .42),
+      0 18px 42px rgba(37, 46, 59, .12);
+    -webkit-backdrop-filter: blur(26px) saturate(138%);
+    backdrop-filter: blur(26px) saturate(138%);
+    isolation: isolate;
+  }
+
+  .colorfit-home .today-panel::after {
+    right: -90px;
+    bottom: -120px;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle at 35% 35%, rgba(213, 222, 238, .72), rgba(225, 218, 241, .46) 52%, transparent 72%);
+    filter: blur(22px);
+  }
+
+  .colorfit-home .today-liquid-layer {
+    inset: -18%;
+    opacity: .94;
+    filter: blur(24px) saturate(132%);
+  }
+
+  .colorfit-home .today-content {
+    gap: 11px;
+    max-width: none;
+  }
+
+  .colorfit-home .today-content h1 {
+    font-size: 28px;
+    line-height: 1.13;
+  }
+
+  .colorfit-home .today-content p {
+    max-width: 34rem;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .colorfit-home .home-desktop-copy {
+    display: none;
+  }
+
+  .colorfit-home .home-mobile-copy {
+    display: block;
+  }
+
+  .colorfit-home .home-mobile-personal-action {
+    display: flex;
+    width: 100%;
+    min-height: 46px;
+    margin-top: 3px;
+    justify-content: center;
+  }
+
+  .home-personal-palette {
+    display: grid !important;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 5px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, .82);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9);
+  }
+
+  .home-personal-palette i {
+    display: block;
+    aspect-ratio: 1;
+    border: 1px solid rgba(255, 255, 255, .72);
+    border-radius: 9px;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, .34);
+  }
+
+  .colorfit-home .today-footer {
+    display: none;
+  }
+
+  .colorfit-home .first-use-guide {
+    order: 2;
+    margin-top: 0;
+    padding: 16px;
+  }
+
+  .first-use-guide-head {
+    gap: 10px;
+  }
+
+  .first-use-guide-head h2 {
+    font-size: 18px;
+  }
+
+  .first-use-guide-status {
+    align-items: flex-start;
+  }
+
+  .first-use-guide-status strong {
+    min-width: 48px;
+    height: 34px;
+  }
+
+  .first-use-guide-status button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .first-use-steps {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .first-use-step {
+    min-height: 70px;
+    padding: 10px;
+  }
+
+  .colorfit-home .quick-grid {
+    order: 3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .colorfit-home .quick-card {
+    min-height: 74px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    gap: 9px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .colorfit-home .quick-card .mini-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .colorfit-home .quick-card > span:last-child {
+    display: grid;
+    gap: 3px;
+  }
+
+  .colorfit-home .quick-card small {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .colorfit-home .weather-panel {
+    order: 4;
+    min-height: 0;
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .colorfit-home .weather-temp {
+    font-size: 32px;
+  }
+
+  .colorfit-home .weather-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    background: #f3f4f6;
+    color: #596273;
+  }
+
+  .colorfit-home .home-lower > .panel:first-child {
+    order: 5;
+  }
+
+  .colorfit-home .home-mobile-recommend {
+    order: 6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .home-mobile-recommend > div {
+    display: grid;
+    gap: 5px;
+  }
+
+  .home-mobile-recommend h2 {
+    font-size: 16px;
+  }
+
+  .home-mobile-recommend p {
+    font-size: 11px;
+  }
+
+  .home-mobile-recommend .button {
+    flex: none;
+  }
+
+  .colorfit-home .home-lower > .panel:last-child {
+    order: 7;
+  }
+
+  .colorfit-home .home-lower > .panel {
+    padding: 16px;
+  }
+
+  .colorfit-home .mini-wardrobes {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding: 0 16px 4px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .colorfit-home .mini-wardrobes::-webkit-scrollbar {
+    display: none;
+  }
+
+  .colorfit-home .wardrobe-mini {
+    display: block;
+    flex: 0 0 142px;
+    scroll-snap-align: start;
+  }
+
+  .colorfit-home .wardrobe-mini .mosaic {
+    height: 96px;
+  }
+
+  .colorfit-home .wardrobe-mini > span:last-child {
+    display: grid;
+    gap: 3px;
+    padding: 10px;
+    text-align: left;
+  }
+
+  .colorfit-home .saved-preview {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .colorfit-recommend .color-combo-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin-inline: -14px;
+    padding: 2px 14px 8px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .colorfit-recommend .color-combo-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .colorfit-recommend .color-combo-pill {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .colorfit-recommend .color-combo-pill[style].active {
+    border-color: rgba(7, 29, 112, .3);
+    background:
+      radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--combo-a) 34%, transparent), transparent 50%),
+      radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--combo-b) 30%, transparent), transparent 54%),
+      rgba(255, 255, 255, .78);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .94),
+      0 10px 24px rgba(37, 46, 59, .1);
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+
+  .personal-result-page .page-head .button.secondary {
+    display: flex;
+  }
+
+  .personal-result-page .result-hero-actions {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .personal-result-page .result-hero-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .personal-result-page .result-hero-actions .button {
+    flex: 0 0 auto;
+  }
+
+  .personal-result-page .liquid-result-hero {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .first-use-guide-head p {
+    display: none;
+  }
+
+  .first-use-step {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .first-use-step small {
+    font-size: 10px;
+  }
+
+  .colorfit-home .home-mobile-recommend {
+    align-items: flex-end;
+  }
+
+  .colorfit-home .home-mobile-recommend .button {
+    min-width: 78px;
+    padding-inline: 12px;
+  }
+}

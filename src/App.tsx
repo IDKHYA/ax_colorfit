@@ -237,6 +237,7 @@ function App() {
   const [recommendSearch, setRecommendSearch] = useState('');
   const [recommendRequested, setRecommendRequested] = useState(false);
   const [selectedRecommendWardrobes, setSelectedRecommendWardrobes] = useState<Set<string>>(() => new Set(INITIAL_WARDROBES.map((item) => item.id)));
+  const [firstUseGuideDismissed, setFirstUseGuideDismissed] = useState(false);
   const weatherState = useWeather();
   const [weatherBand, setWeatherBand] = useState<RecommendationWeatherBand>('20~22도');
   const [weatherTouched, setWeatherTouched] = useState(false);
@@ -267,6 +268,9 @@ function App() {
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
   const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode, personalColorResult), [recommendItems, weatherBand, recommendMode, personalColorResult]);
+  const firstUsePreparationIncomplete = !personalColorResult
+    || !clothingItems.some((item) => item.category === '상의')
+    || !clothingItems.some((item) => item.category === '하의');
 
   // 기준 옷 코디 찾기. 카탈로그 전체를 퍼스널컬러 점수까지 매겨 후보 풀로 만들어 두고(memo), 옷장 풀과 함께 넘긴다.
   const anchorCatalogPool = useMemo(
@@ -454,6 +458,7 @@ function App() {
     setAnalysisStep('photo');
     resetWardrobes();
     resetSavedOutfits();
+    setFirstUseGuideDismissed(false);
   };
 
   const openCatalog = (mode: 'create' | 'append') => {
@@ -493,6 +498,8 @@ function App() {
               weatherBand={weatherBand}
               refreshWeather={weatherState.refresh}
               recommendationCount={recommendations.length}
+              showFirstUseGuide={firstUsePreparationIncomplete && !firstUseGuideDismissed}
+              dismissFirstUseGuide={() => setFirstUseGuideDismissed(true)}
               go={goPage}
               openPersonal={() => navigate({ page: 'personal', analysisStep: personalColorResult ? 'result' : 'photo' })}
               openManual={() => navigate({ page: 'wardrobe', wardrobeView: 'manual' })}

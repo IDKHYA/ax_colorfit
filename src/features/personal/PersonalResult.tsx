@@ -186,7 +186,6 @@ export function PersonalResult({
           <div className="palette-glass">
             <div className="palette-head">
               <div><strong>Core spectrum</strong><small>진단 시즌의 24색 기준 팔레트</small></div>
-              <span className="confidence-badge">신뢰도 {Math.round(result.confidence * 100)}%</span>
             </div>
             <div className="liquid-palette" aria-label={profile.ko + ' 색상 팔레트'}>
               {profile.palette.map((hex, index) => <i className="palette-swatch" key={hex + '-' + index} style={{ backgroundColor: hex }} title={hex} />)}

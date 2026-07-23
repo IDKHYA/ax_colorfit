@@ -1,6 +1,6 @@
 // V5 Exact 홈 구조에 현재 퍼컬, 날씨, 옷장, 저장 룩 데이터를 연결합니다.
 import { useMemo } from 'react';
-import { Bookmark, Camera, ChevronRight, ImagePlus, Sparkles, Sun } from 'lucide-react';
+import { Bookmark, Camera, Check, ChevronRight, ImagePlus, Sparkles, Sun, X } from 'lucide-react';
 import { clothingDisplayImage } from '../../services/clothingDisplay';
 import { buildSeasonGlassBackground } from '../personal/seasonGlass';
 import { SEASON_LABELS } from '../../wardrobeConstants';
@@ -20,6 +20,8 @@ export function HomeDashboard(props: {
   weatherBand: RecommendationWeatherBand;
   refreshWeather: () => void;
   recommendationCount: number;
+  showFirstUseGuide: boolean;
+  dismissFirstUseGuide: () => void;
   go: (page: Page) => void;
   openPersonal: () => void;
   openManual: () => void;
@@ -47,6 +49,12 @@ export function HomeDashboard(props: {
       ? props.weather.weatherText + ' · 체감 ' + Math.round(props.weather.apparentTemperature) + '도'
       : '날씨 정보 없음');
   const locationLabel = props.weather?.locationLabel ?? (props.weatherSource === 'fallback' ? '서울 기준' : '현재 위치');
+  const personalReady = Boolean(result);
+  const hasTop = props.scoredItems.some((item) => item.category === '상의');
+  const hasBottom = props.scoredItems.some((item) => item.category === '하의');
+  const clothingReady = hasTop && hasBottom;
+  const clothingReadyCount = Number(hasTop) + Number(hasBottom);
+  const readyCount = Number(personalReady) + Number(clothingReady);
 
   return (
     <section className="colorfit-home">
@@ -54,9 +62,22 @@ export function HomeDashboard(props: {
         <section className={'glass-panel today-panel' + (todayGlassBackground ? ' today-panel--season' : '')}>
           {todayGlassBackground && <div className="today-liquid-layer" style={{ background: todayGlassBackground }} />}
           <div className="today-content">
-            <span className="page-kicker">{weekday} · {temperature} · {seasonLabel}</span>
-            <h1>{result ? '오늘은 ' + seasonLabel + '의 색으로 시작해볼까요?' : '오늘 입을 옷을 함께 정리해볼까요?'}</h1>
-            <p>{result ? '퍼컬 결과와 현재 날씨, 등록한 옷을 함께 보고 오늘의 조합을 만듭니다.' : '퍼컬을 진단하거나 옷을 먼저 등록하면 실제 옷장으로 조합을 만들 수 있습니다.'}</p>
+            <span className="page-kicker home-desktop-copy">{weekday} · {temperature} · {seasonLabel}</span>
+            <span className="page-kicker home-mobile-copy">나의 퍼스널컬러</span>
+            <h1>
+              <span className="home-desktop-copy">{result ? '오늘은 ' + seasonLabel + '의 색으로 시작해볼까요?' : '오늘 입을 옷을 함께 정리해볼까요?'}</span>
+              <span className="home-mobile-copy">{result ? seasonLabel : '내 색부터 확인해요.'}</span>
+            </h1>
+            <p className="home-desktop-copy">{result ? '퍼컬 결과와 현재 날씨, 등록한 옷을 함께 보고 오늘의 조합을 만듭니다.' : '퍼컬을 진단하거나 옷을 먼저 등록하면 실제 옷장으로 조합을 만들 수 있습니다.'}</p>
+            <p className="home-mobile-copy">{result ? '잘 받는 색의 범위와 옷장 활용 색을 바로 확인할 수 있습니다.' : '사진 한 장과 짧은 질문으로 옷 추천의 색 기준을 만듭니다.'}</p>
+            {result && (
+              <div className="home-personal-palette home-mobile-copy" aria-label={seasonLabel + ' 핵심 팔레트'}>
+                {result.palette.slice(0, 8).map((hex, index) => <i key={hex + '-' + index} style={{ backgroundColor: hex }} />)}
+              </div>
+            )}
+            <button className="button primary home-mobile-personal-action home-mobile-copy" type="button" onClick={props.openPersonal}>
+              {result ? '퍼스널컬러 결과 보기' : '퍼스널컬러 측정'}
+            </button>
           </div>
           <div className="today-footer">
             <div className="today-state">
@@ -100,6 +121,54 @@ export function HomeDashboard(props: {
           </section>
         </div>
       </div>
+
+      {props.showFirstUseGuide && (
+        <section className="panel first-use-guide" aria-labelledby="first-use-guide-title">
+          <div className="first-use-guide-head">
+            <div>
+              <span className="page-kicker">처음 시작 가이드</span>
+              <h2 id="first-use-guide-title">두 가지만 준비하면 추천을 볼 수 있어요.</h2>
+              <p>순서대로 하지 않아도 되고, 완료한 항목은 자동으로 표시됩니다.</p>
+            </div>
+            <div className="first-use-guide-status">
+              <strong>{readyCount}/2</strong>
+              <button type="button" onClick={props.dismissFirstUseGuide} aria-label="처음 시작 안내 숨기기"><X className="icon" /></button>
+            </div>
+          </div>
+          <div className="first-use-steps">
+            <button className={'first-use-step' + (personalReady ? ' is-complete' : ' is-current')} type="button" onClick={props.openPersonal}>
+              <span className="first-use-step-number">{personalReady ? <Check className="icon" /> : '1'}</span>
+              <span><strong>퍼스널컬러 측정</strong><small>옷마다 내 색과 얼마나 잘 맞는지 계산하는 기준입니다.</small></span>
+              <em>{personalReady ? '완료' : '약 3분'}</em>
+            </button>
+            <button className={'first-use-step' + (clothingReady ? ' is-complete' : personalReady ? ' is-current' : '')} type="button" onClick={props.openManual}>
+              <span className="first-use-step-number">{clothingReady ? <Check className="icon" /> : '2'}</span>
+              <span><strong>상의와 하의 등록</strong><small>사진이나 카탈로그로 상의와 하의를 한 벌씩 등록하면 조합을 만들 수 있습니다.</small></span>
+              <em>{clothingReady ? '완료' : clothingReadyCount + '/2종'}</em>
+            </button>
+            <div className={'first-use-step' + (personalReady && clothingReady ? ' is-current' : '')}>
+              <span className="first-use-step-number">3</span>
+              <span><strong>색 조합별 추천 확인</strong><small>준비가 끝나면 색상별 코디와 네 가지 점수를 비교할 수 있습니다.</small></span>
+              <em>{personalReady && clothingReady ? '준비됨' : '준비 후'}</em>
+            </div>
+          </div>
+          <details className="first-use-details">
+            <summary>전체 사용법 보기</summary>
+            <p>퍼스널컬러가 옷의 색 점수를 만들고, 선택한 옷장에서 추천 조합을 만든 뒤, 마음에 드는 결과를 데일리룩 보관함에 저장합니다.</p>
+          </details>
+        </section>
+      )}
+
+      <section className="panel home-mobile-recommend">
+        <div>
+          <span className="page-kicker">옷 추천</span>
+          <h2>{personalReady && clothingReady ? '추천 가능한 색 조합 ' + props.recommendationCount + '개' : '추천 준비가 필요해요.'}</h2>
+          <p>{personalReady && clothingReady ? '선택한 옷장과 현재 날씨로 계산합니다.' : '퍼컬 측정과 옷 두 벌 등록을 먼저 완료하세요.'}</p>
+        </div>
+        <button className="button secondary" type="button" onClick={() => props.go('recommend')}>
+          <Sparkles className="icon" />{personalReady && clothingReady ? '열기' : '준비'}
+        </button>
+      </section>
 
       <div className="home-lower">
         <section className="panel">

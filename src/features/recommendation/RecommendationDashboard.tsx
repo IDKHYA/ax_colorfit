@@ -244,7 +244,13 @@ function RecommendationList({ recommendations, onSave }: { recommendations: Outf
       <div className="color-combo-tabs" aria-label="색 조합 필터">
         <button className={selectedKey === null ? 'color-combo-pill active' : 'color-combo-pill'} type="button" onClick={() => setSelectedKey(null)}>전체 <span className="pill-count">{recommendations.length}</span></button>
         {groups.map((group) => (
-          <button key={group.key} className={selectedKey === group.key ? 'color-combo-pill active' : 'color-combo-pill'} type="button" onClick={() => setSelectedKey(group.key)}>
+          <button
+            key={group.key}
+            className={selectedKey === group.key ? 'color-combo-pill active' : 'color-combo-pill'}
+            type="button"
+            style={{ '--combo-a': group.topHex, '--combo-b': group.bottomHex } as React.CSSProperties}
+            onClick={() => setSelectedKey(group.key)}
+          >
             <span className="pill-swatch" style={{ background: group.topHex }} /><span className="pill-swatch" style={{ background: group.bottomHex }} />{group.label}<span className="pill-count">{group.outfits.length}</span>
           </button>
         ))}
