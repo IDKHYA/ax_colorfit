@@ -255,6 +255,17 @@
     .source-tab.active { background: var(--navy); color: #fff; }
     /* 카탈로그 탭은 입력 방식이 아니라 준비된 옷 고르기 화면으로 이동하는 진입점이라 살짝 구분해 준다. */
     .source-tab--catalog { border-style: dashed; border-color: var(--navy); color: var(--navy); }
+    /* 첫 사용자 안내가 떠 있는 동안엔 카탈로그 탭을 은은하게 강조한다. */
+    .source-tab--catalog.is-nudged { background: rgba(7,29,112,.06); animation: catalog-tab-pulse 2.2s ease-in-out infinite; }
+    @keyframes catalog-tab-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(7,29,112,.28); } 50% { box-shadow: 0 0 0 4px rgba(7,29,112,0); } }
+    /* 첫 사용자 유도 코치 팝업 — 3번째 탭(옷 골라 담기) 아래에서 위쪽 화살표로 연결한다. */
+    .catalog-tab-coach { position: relative; display: flex; flex-direction: column; gap: 10px; margin: -4px 0 16px; padding: 14px 16px; border: 1px solid var(--navy); border-radius: 14px; background: #fff; box-shadow: 0 10px 26px rgba(7,29,112,.14); }
+    .catalog-tab-coach::before { content: ''; position: absolute; top: -8px; right: 16.6%; width: 14px; height: 14px; background: #fff; border-left: 1px solid var(--navy); border-top: 1px solid var(--navy); transform: translateX(50%) rotate(45deg); }
+    .catalog-tab-coach-body strong { display: block; font-size: 15px; font-weight: 800; color: var(--navy); }
+    .catalog-tab-coach-body p { margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+    .catalog-tab-coach-cta { align-self: flex-start; min-height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--navy); color: #fff; font-weight: 750; cursor: pointer; }
+    .catalog-tab-coach-close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+    .catalog-tab-coach-close .icon { width: 17px; height: 17px; }
     .upload-preview { position: relative; display: grid; place-items: center; min-height: 480px; overflow: hidden; border-radius: 16px; background: #eef0f0; }
     .upload-preview img { width: 100%; height: 480px; object-fit: cover; }
     .analysis-badge { position: absolute; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; background: rgba(255,255,255,.82); backdrop-filter: blur(9px); padding: 8px 11px; font-weight: 750; }

@@ -6,6 +6,7 @@ import { ColorInsightModal } from '../color/ColorInsightModal';
 import { clothingDisplayImage, isHexColor } from '../../services/clothingDisplay';
 import { buildColorInsight } from '../../services/colorInsight';
 import { buildColorMeta, colorMetaForInput } from '../../services/clothingMeta';
+import { loadJson, saveJson } from '../../services/storage';
 import type { CatalogItem } from '../../data/trainingCatalog';
 import type { FinalResult } from '../../types';
 import type { UrlImportState } from '../../hooks/useManualClothing';
@@ -506,6 +507,9 @@ function CatalogPreviewView(props: {
   );
 }
 
+// '옷 골라 담기'(카탈로그) 유도 팝업을 처음 한 번만 보여주기 위한 localStorage 플래그 키.
+const CATALOG_TIP_SEEN_KEY = 'colorfit.catalogTabTipSeen';
+
 // 사용자가 직접 의류를 등록하는 화면입니다. 이미지, 카테고리, 타입, 색상, 사이즈, 브랜드를 입력받습니다.
 function ManualAdd(props: {
   setView: (view: WardrobeView) => void;
@@ -530,6 +534,16 @@ function ManualAdd(props: {
   onSaveManual: () => void;
 }) {
   const [inputMode, setInputMode] = useState<'upload' | 'url'>('upload');
+  // 첫 사용자에게만 '옷 골라 담기'를 써보라고 안내하는 코치 팝업. 한 번 닫으면 다시 뜨지 않는다.
+  const [showCatalogTip, setShowCatalogTip] = useState(() => !loadJson<boolean>(CATALOG_TIP_SEEN_KEY, false));
+  const dismissCatalogTip = () => {
+    setShowCatalogTip(false);
+    saveJson(CATALOG_TIP_SEEN_KEY, true);
+  };
+  const openCatalogFromTip = () => {
+    dismissCatalogTip();
+    props.onOpenCatalog('append');
+  };
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sheetOffset, setSheetOffset] = useState(0);
   const [selectedInsightHex, setSelectedInsightHex] = useState('');
@@ -591,8 +605,19 @@ function ManualAdd(props: {
           <div className="source-tabs" role="tablist" aria-label="의류 입력 방식">
             <button className={inputMode === 'upload' ? 'source-tab active' : 'source-tab'} type="button" aria-selected={inputMode === 'upload'} onClick={() => setInputMode('upload')}>사진 업로드</button>
             <button className={inputMode === 'url' ? 'source-tab active' : 'source-tab'} type="button" aria-selected={inputMode === 'url'} onClick={() => setInputMode('url')}>URL 가져오기</button>
-            <button className="source-tab source-tab--catalog" type="button" aria-selected={false} onClick={() => props.onOpenCatalog('append')}>카탈로그에서 고르기</button>
+            <button className={'source-tab source-tab--catalog' + (showCatalogTip ? ' is-nudged' : '')} type="button" aria-selected={false} onClick={() => props.onOpenCatalog('append')}>옷 골라 담기</button>
           </div>
+
+          {showCatalogTip && (
+            <div className="catalog-tab-coach" role="dialog" aria-label="옷 골라 담기 안내">
+              <button className="catalog-tab-coach-close" type="button" onClick={dismissCatalogTip} aria-label="안내 닫기"><X className="icon" /></button>
+              <div className="catalog-tab-coach-body">
+                <strong>사진 찍기 번거롭다면?</strong>
+                <p>준비된 옷 중에서 마음에 드는 걸 바로 골라 담을 수 있어요.</p>
+              </div>
+              <button className="catalog-tab-coach-cta" type="button" onClick={openCatalogFromTip}>옷 골라 담기</button>
+            </div>
+          )}
 
           {inputMode === 'upload' ? (
             <>
