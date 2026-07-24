@@ -85,7 +85,7 @@ export function PersonalResult({
     { key: 'Skin', label: '피부', color: result.extractedColors.skin },
     { key: 'Hair', label: '헤어', color: result.extractedColors.hair },
     { key: 'Eyes', label: '눈동자', color: result.extractedColors.eyes },
-    { key: 'Lips', label: '입술', color: result.extractedColors.lips },
+    { key: 'Lips', label: '입술', color: result.extractedColors.lipsDisplay ?? result.extractedColors.lips },
   ];
 
   const shareCardRef = useRef<HTMLDivElement>(null);

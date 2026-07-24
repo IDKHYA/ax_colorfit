@@ -39,6 +39,9 @@ export interface ExtractedColors {
   hair: string;
   eyes: string;
   lips: string;
+  // 결과 화면 표시 전용으로 이상화한 입술색입니다. 진단에는 lips(측정값)를 사용합니다.
+  // 없으면 표시 측에서 lips로 폴백합니다(데모/구버전 데이터 호환).
+  lipsDisplay?: string;
 }
 
 export interface RoiMeasurement {
@@ -180,6 +183,10 @@ export interface FinalResult {
       fusedNormalizedScore: number;
     }>;
     rawResponses: Record<string, string>;
+    // 축별 융합 진단용(개발 모드): 사진·설문을 신뢰도로 섞은 4축 결과와 축별 사진/설문 신뢰도.
+    fusedFeatures?: QuestionnaireScores;
+    photoFeatures?: QuestionnaireScores;
+    axisReliability?: Record<'temperature' | 'lightness' | 'clarity' | 'contrast', { photo: number; question: number }>;
   };
 }
 
@@ -195,6 +202,9 @@ export interface Question {
     description?: string;
     swatches?: string[];
     swatchCaption?: string;
+    // true이면 "잘 모르겠어요" 같은 응답으로, 해당 축 점수 계산(분자·분모 모두)에서 제외됩니다.
+    // 값 0(중립, 확신 있음)과 무응답/모름(확신 없음)을 구분하기 위한 플래그입니다.
+    unknown?: boolean;
   }[];
 }
 

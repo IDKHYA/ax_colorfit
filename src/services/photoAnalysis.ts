@@ -62,6 +62,7 @@ export interface PhotoAnalysisPayload {
     hair: string;
     eyes: string;
     lips: string;
+    lipsDisplay?: string;
   };
   photoQuality: number;
   measurementDetails: MeasurementDetails;
@@ -365,6 +366,25 @@ const correctLipColor = (lip: Rgb, skin: Rgb): Rgb => {
   };
 };
 
+// 결과 화면 "표시 전용" 입술색입니다. 진단(온도/clarity/팔레트)에는 쓰지 않습니다.
+// 진단용 correctLipColor가 측정 오차만 완만히 잡는 것과 달리, 이 함수는 갈색기를 확실히 빼고
+// 자연스러운 혈색·밝기를 보장해 스와치가 칙칙하거나 어색해 보이지 않게 합니다(선의의 거짓말).
+// 단, 사용자의 웜/쿨 경향(hue)은 최대한 보존해 실제와 동떨어진 색이 되지 않게 합니다.
+const idealizeLipColorForDisplay = (lip: Rgb, skin: Rgb): Rgb => {
+  const lipHsl = rgbToHsl(lip);
+  const looksBrown = lipHsl.h > 0.045 && lipHsl.h < 0.15 && lip.b < lip.g * 0.95;
+  const hue = looksBrown ? 0.98 : lipHsl.h; // 갈색만 로즈-레드로, 그 외에는 원래 경향 유지
+  const saturation = clamp(lipHsl.s, 0.32, 0.6); // 최소 혈색 보장 + 과채도 방지
+  const lightness = clamp(Math.max(lipHsl.l, luminance(skin) * 0.62), 0.34, 0.6); // 너무 어둡지 않게
+  const ideal = hslToRgb(hue, saturation, lightness);
+  const strength = 0.65; // 표시 전용이라 진단보다 과감하게 미화하되 개성은 일부 남김
+  return {
+    r: lip.r * (1 - strength) + ideal.r * strength,
+    g: lip.g * (1 - strength) + ideal.g * strength,
+    b: lip.b * (1 - strength) + ideal.b * strength,
+  };
+};
+
 // 사용자가 흰 종이를 들고 촬영한 경우 해당 영역을 기준으로 화이트 밸런스를 추정합니다.
 // 밝기와 안정성이 낮으면 잘못된 기준으로 판단하지 않도록 null을 반환합니다.
 const sampleWhiteReferenceCalibration = (context: CanvasRenderingContext2D, calibrationRegion?: CalibrationRegion): BackgroundCalibration | null => {
@@ -607,6 +627,7 @@ export function analyzeFaceSnapshotColors(
   const eyebrows = applyCalibration(averageRgb([samples.eyebrowLeft.trimmed, samples.eyebrowRight.trimmed]), backgroundCalibration);
   const calibratedHair = applyCalibration(samples.hair.trimmed, backgroundCalibration);
   const lips = correctLipColor(applyCalibration(samples.lips.trimmed, backgroundCalibration), skin);
+  const lipsForDisplay = idealizeLipColorForDisplay(lips, skin); // 화면 스와치 전용(진단 미사용)
   const forehead = applyCalibration(samples.forehead.trimmed, backgroundCalibration);
   // 헤어라인은 배경과 섞일 수 있으므로 눈썹색을 40% 섞어 실제 모발 계열을 안정화합니다.
   const hair = {
@@ -647,6 +668,7 @@ export function analyzeFaceSnapshotColors(
       hair: rgbToCss(hair),
       eyes: rgbToCss(eyes),
       lips: rgbToCss(lips),
+      lipsDisplay: rgbToCss(lipsForDisplay),
     },
     photoQuality: quality.overall,
     measurementDetails: {

@@ -29,12 +29,11 @@ import {
 import {
   clamp,
   labTemperatureIndex,
-  deltaE,
+  deltaE2000,
   hexToRgb,
   luminance,
   normalize,
   parseRgbString,
-  rgbToHsl,
   rgbToLab,
 } from '@/src/services/colorUtils';
 
@@ -58,6 +57,17 @@ const QUESTION_TRAIT_WEIGHTS = {
   contrast: 0.17,
 } as const;
 
+// 축별 사진/설문 기본 신뢰도.
+// 사진은 온도가 약하고(캘리브레이션 없는 조명에서 피부가 항상 웜쪽으로 읽힘) 명도·대비가 강합니다.
+// 설문은 온도(언더톤 자가판단)가 강하고 나머지는 보통입니다. 서로의 약점을 보완하도록 배분했습니다.
+const PHOTO_AXIS_RELIABILITY = { temperature: 0.3, lightness: 0.85, clarity: 0.55, contrast: 0.6 } as const;
+const QUESTION_AXIS_RELIABILITY = { temperature: 0.8, lightness: 0.55, clarity: 0.6, contrast: 0.55 } as const;
+
+// 사진·설문을 축별로 융합한 뒤 12시즌을 "한 번만" 채점할 때 쓰는 축 중요도입니다.
+const FUSED_TRAIT_WEIGHTS = { temperature: 0.32, lightness: 0.24, clarity: 0.28, contrast: 0.16 } as const;
+
+const AXES = ['temperature', 'lightness', 'clarity', 'contrast'] as const;
+
 // 시즌 팔레트는 매번 HEX -> Lab 변환하면 비용이 크므로, 모듈 로딩 시 한 번만 Lab 좌표로 캐싱합니다.
 const SEASON_PALETTE_LABS = Object.fromEntries(
   SEASON_ORDER.map((seasonId) => [seasonId, SEASON_PROFILES[seasonId].palette.map((hex) => rgbToLab(hexToRgb(hex)))]),
@@ -65,10 +75,6 @@ const SEASON_PALETTE_LABS = Object.fromEntries(
 
 function round4(value: number) {
   return Number(value.toFixed(4));
-}
-
-function average(values: number[]) {
-  return values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
 }
 
 function closeness(value: number, target: number) {
@@ -94,13 +100,6 @@ function measureColorFeatures(extractedColors: ExtractedColors) {
   const hair = parseRgbString(extractedColors.hair);
   const eyes = parseRgbString(extractedColors.eyes);
   const lips = parseRgbString(extractedColors.lips);
-
-  const hsl = {
-    skin: rgbToHsl(skin),
-    hair: rgbToHsl(hair),
-    eyes: rgbToHsl(eyes),
-    lips: rgbToHsl(lips),
-  };
 
   const luminances = {
     skin: luminance(skin),
@@ -128,10 +127,20 @@ function measureColorFeatures(extractedColors: ExtractedColors) {
     1,
   );
 
-  // 채도 평균이 높으면 clear/bright 쪽, 낮으면 muted/soft 쪽으로 해석합니다.
-  const averageSaturation = average([hsl.skin.s * 0.4, hsl.lips.s * 0.25, hsl.eyes.s * 0.2, hsl.hair.s * 0.15]);
-  const clarity = clamp(averageSaturation * 2 - 1, -1, 1);
-  const mutedScore = clamp(1 - averageSaturation, 0, 1);
+  // 선명도(clarity)는 HSL 채도 대신 Lab chroma(C* = √(a²+b²))로 계산합니다.
+  // HSL 채도는 어두운 머리·눈에서 왜곡이 크고 자연 얼굴이 한쪽으로 몰려 변별력이 없습니다.
+  // (과거 구현은 가중합을 average()로 다시 4로 나눠 채도가 1/4로 눌리는 버그가 있었습니다.)
+  const chromaOf = (color: { r: number; g: number; b: number }) => {
+    const lab = rgbToLab(color);
+    return Math.sqrt(lab.a * lab.a + lab.b * lab.b);
+  };
+  const weightedChroma = chromaOf(skin) * 0.4 + chromaOf(lips) * 0.25 + chromaOf(eyes) * 0.2 + chromaOf(hair) * 0.15;
+  // 자연 얼굴 chroma 경험 대역(C* 약 8~34)을 -1~1로 매핑해 얼굴이 축 전체에 퍼지도록 캘리브레이션합니다.
+  const FACE_CHROMA_MIN = 8;
+  const FACE_CHROMA_MAX = 34;
+  const clarity = clamp(((weightedChroma - FACE_CHROMA_MIN) / (FACE_CHROMA_MAX - FACE_CHROMA_MIN)) * 2 - 1, -1, 1);
+  // mutedScore는 clarity를 0~1로 뒤집은 값입니다. clarity가 낮을수록(저채도) 뮤트에 가깝습니다.
+  const mutedScore = clamp((1 - clarity) / 2, 0, 1);
 
   // 대비는 얼굴 내부 대비를 중심으로 계산합니다. 머리카락 대비만으로 겨울 타입이 과분류되는 것을 막기 위해 hairContrast 비중을 낮췄습니다.
   const facialLuminances = [luminances.skin, luminances.eyes, luminances.lips];
@@ -156,40 +165,31 @@ function measureColorFeatures(extractedColors: ExtractedColors) {
 // Delta E 최단 거리를 0~1 점수로 바꾸어 skin/hair/eyes/lips별 팔레트 점수에 사용합니다.
 function scorePaletteMatch(colorCss: string, seasonId: SeasonId) {
   const sampleLab = rgbToLab(parseRgbString(colorCss));
-  const distances = SEASON_PALETTE_LABS[seasonId].map((paletteLab) => deltaE(sampleLab, paletteLab));
+  // 색상 계약: 지각 거리는 CIEDE2000을 사용합니다(CIE76 유클리드 대비 파랑 계열 비균일성 보정).
+  const distances = SEASON_PALETTE_LABS[seasonId].map((paletteLab) => deltaE2000(sampleLab, paletteLab));
   const bestDistance = Math.min(...distances);
-  return clamp(1 - bestDistance / 65, 0, 1);
+  // CIEDE2000은 CIE76보다 값이 압축되므로 정규화 분모를 45로 재보정합니다.
+  return clamp(1 - bestDistance / 45, 0, 1);
 }
 
-// 특정 시즌에 보정이 왜 들어갔는지 개발자 모드에서 설명하기 위한 문장을 만듭니다.
-// 결과를 디버깅할 때 "왜 겨울이 낮아졌는지", "왜 소프트가 올라갔는지"를 추적할 수 있습니다.
-function seasonDebugNotes(features: QuestionnaireScores & { mutedScore: number }, seasonId: SeasonId) {
+// 개발자 모드에서 각 시즌 점수가 어떤 축에서 갈렸는지 추적하기 위한 설명 문장입니다.
+// (과거의 겨울 페널티/소프트 보너스 등 도메인 보정은 제거되었습니다. clarity 측정이 정상화되어
+//  뮤트한 얼굴은 closeness 유사도만으로 자연스럽게 저채도 시즌에 가까워지므로 별도 감점이 불필요합니다.)
+function seasonDebugNotes(features: QuestionnaireScores, seasonId: SeasonId) {
   const traits = SEASON_PROFILES[seasonId].traits;
-  const notes: string[] = [];
-  const mutedAffinity = clamp((features.mutedScore - 0.42) / 0.45, 0, 1);
-
-  if (SEASON_PROFILES[seasonId].family === 'winter' && mutedAffinity > 0) {
-    notes.push(`뮤트 점수 ${round4(features.mutedScore)} 때문에 겨울 계열에 최대 0.16 페널티를 적용했습니다.`);
-  }
-  if (['soft-summer', 'soft-autumn'].includes(seasonId) && mutedAffinity > 0) {
-    notes.push(`뮤트 점수 ${round4(features.mutedScore)} 때문에 소프트 시즌 보너스를 적용했습니다.`);
-  }
-  if (traits.contrast >= 0.75 && features.contrast < 0.35) {
-    notes.push(`사진 대비 ${round4(features.contrast)}가 낮아 고대비 시즌 페널티를 적용했습니다.`);
-  }
-  if (traits.clarity >= 0.7 && features.clarity < 0) {
-    notes.push(`사진 선명도 ${round4(features.clarity)}가 낮아 고선명 시즌 페널티를 적용했습니다.`);
-  }
-  if (notes.length === 0) {
-    notes.push('추가 보정 없이 기본 특징 유사도와 팔레트 거리만 반영했습니다.');
-  }
-
-  return notes;
+  const axisGap = (label: string, value: number, target: number) =>
+    `${label} 근접도 ${round4(closeness(value, target))} (측정 ${round4(value)} / 목표 ${target})`;
+  return [
+    '보정 없이 4축 특징 유사도와 팔레트 거리만 반영했습니다.',
+    axisGap('온도', features.temperature, traits.temperature),
+    axisGap('선명도', features.clarity, traits.clarity),
+    axisGap('대비', features.contrast, traits.contrast),
+  ];
 }
 
 // features와 시즌 traits 사이의 유사도를 계산합니다.
 // 사진 점수와 설문 점수는 중요도가 다르기 때문에 weights를 인자로 받아 같은 계산식을 재사용합니다.
-function scoreSeasonTraits(features: QuestionnaireScores, seasonId: SeasonId, weights: typeof PHOTO_TRAIT_WEIGHTS | typeof QUESTION_TRAIT_WEIGHTS) {
+function scoreSeasonTraits(features: QuestionnaireScores, seasonId: SeasonId, weights: Record<keyof QuestionnaireScores, number>) {
   const traits = SEASON_PROFILES[seasonId].traits;
   return clamp(
     closeness(features.temperature, traits.temperature) * weights.temperature +
@@ -201,18 +201,12 @@ function scoreSeasonTraits(features: QuestionnaireScores, seasonId: SeasonId, we
   );
 }
 
-// 사진 기반 시즌 점수에 도메인 보정 규칙을 더합니다.
-// 저채도/저대비 얼굴이 high clarity 겨울로 과분류되는 문제를 줄이고, soft 계열은 적절히 보정합니다.
-function scorePhotoSeasonTraits(features: QuestionnaireScores & { mutedScore: number }, seasonId: SeasonId) {
-  const traits = SEASON_PROFILES[seasonId].traits;
-  const baseScore = scoreSeasonTraits(features, seasonId, PHOTO_TRAIT_WEIGHTS);
-  const mutedAffinity = clamp((features.mutedScore - 0.42) / 0.45, 0, 1);
-  const winterPenalty = SEASON_PROFILES[seasonId].family === 'winter' ? mutedAffinity * 0.16 : 0;
-  const softSeasonBonus = ['soft-summer', 'soft-autumn'].includes(seasonId) ? mutedAffinity * 0.1 : 0;
-  const highContrastPenalty = traits.contrast >= 0.75 && features.contrast < 0.35 ? 0.12 : 0;
-  const highClarityPenalty = traits.clarity >= 0.7 && features.clarity < 0 ? 0.14 : 0;
-
-  return clamp(baseScore + softSeasonBonus - winterPenalty - highContrastPenalty - highClarityPenalty, 0, 1);
+// 사진 기반 시즌 점수입니다.
+// 과거에는 여기서 겨울 페널티·소프트 보너스·고선명/고대비 페널티를 가산했지만,
+// 그 보정들은 (1) clarity 측정 버그로 mutedScore가 전 사용자에게 최대치로 고정돼 항상 max로 걸렸고
+// (2) clarity를 chroma 기반으로 정상화한 뒤에는 closeness 유사도와 중복이므로 전부 제거했습니다.
+function scorePhotoSeasonTraits(features: QuestionnaireScores, seasonId: SeasonId) {
+  return scoreSeasonTraits(features, seasonId, PHOTO_TRAIT_WEIGHTS);
 }
 
 // Top1과 Top2가 가까울 때 결과 화면에 경계 시즌 안내를 표시합니다.
@@ -253,13 +247,17 @@ export function calculateQuestionnaireScores(rawResponses: Record<string, string
   };
 
   QUESTIONS.forEach((question) => {
+    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
+    // 무응답 또는 "잘 모르겠어요"(unknown)는 해당 문항을 축 계산에서 완전히 제외합니다.
+    // 0을 넣으면 "확실히 중립"으로 오해되므로, 분자(totals)뿐 아니라 분모(maximums)에서도 빼서
+    // 정규화 기준을 응답한 문항만으로 좁힙니다.
+    if (!selected || selected.unknown) return;
+
+    // 이 문항이 각 축에 기여할 수 있는 최대 절댓값(응답 여부와 무관한 문항 고유 상수)을 분모에 더합니다.
     maximums.temperature += Math.max(...question.options.map((option) => Math.abs(option.weights.temperature ?? 0)), 0);
     maximums.lightness += Math.max(...question.options.map((option) => Math.abs(option.weights.lightness ?? 0)), 0);
     maximums.clarity += Math.max(...question.options.map((option) => Math.abs(option.weights.clarity ?? 0)), 0);
     maximums.contrast += Math.max(...question.options.map((option) => Math.abs(option.weights.contrast ?? 0)), 0);
-
-    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
-    if (!selected) return;
 
     totals.temperature += selected.weights.temperature ?? 0;
     totals.lightness += selected.weights.lightness ?? 0;
@@ -272,6 +270,34 @@ export function calculateQuestionnaireScores(rawResponses: Record<string, string
     lightness: round4(normalize(totals.lightness, maximums.lightness)),
     clarity: round4(normalize(totals.clarity, maximums.clarity)),
     contrast: round4(normalize(totals.contrast, maximums.contrast)),
+  };
+}
+
+// 설문의 축별 신뢰도(0~1): 그 축이 실제로 정보성 응답을 얼마나 받았는지.
+// = 응답한 문항의 축별 최대치 합 / 전체 문항의 축별 최대치 합.
+// "잘 모르겠어요"/무응답은 분자에서 빠지므로, 해당 축의 설문 신뢰도가 낮아지고 융합 시 사진에 더 의존하게 됩니다.
+function questionnaireAxisConfidence(rawResponses: Record<string, string>): QuestionnaireScores {
+  const answered: QuestionnaireScores = { temperature: 0, lightness: 0, clarity: 0, contrast: 0 };
+  const full: QuestionnaireScores = { temperature: 0, lightness: 0, clarity: 0, contrast: 0 };
+
+  QUESTIONS.forEach((question) => {
+    const perMax = (axis: keyof QuestionnaireScores) =>
+      Math.max(...question.options.map((option) => Math.abs(option.weights[axis] ?? 0)), 0);
+    AXES.forEach((axis) => {
+      full[axis] += perMax(axis);
+    });
+    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
+    if (!selected || selected.unknown) return;
+    AXES.forEach((axis) => {
+      answered[axis] += perMax(axis);
+    });
+  });
+
+  return {
+    temperature: full.temperature ? answered.temperature / full.temperature : 0,
+    lightness: full.lightness ? answered.lightness / full.lightness : 0,
+    clarity: full.clarity ? answered.clarity / full.clarity : 0,
+    contrast: full.contrast ? answered.contrast / full.contrast : 0,
   };
 }
 
@@ -290,7 +316,10 @@ export function analyzePhotoColors(input: AnalyzePhotoColorsInput): PhotoAnalysi
         scorePaletteMatch(input.extractedColors.eyes, seasonId) * 0.15 +
         scorePaletteMatch(input.extractedColors.lips, seasonId) * 0.2;
       const traitScore = scorePhotoSeasonTraits(features, seasonId);
-      const rawScore = round4(paletteScore * 0.42 + traitScore * 0.58);
+      // 팔레트 거리는 "얼굴색이 그 시즌 의류 팔레트에 얼마나 가까운가"인데, 실제 얼굴은 의류보다 저채도라
+      // 어스톤이 많은 가을 팔레트에 체계적으로 가까워지는 편향이 있습니다. 그래서 팔레트 거리는 주 판정이 아니라
+      // 동률 해소 보조로 격하하고(42%→25%), 4축 특징 유사도 비중을 높였습니다(58%→75%).
+      const rawScore = round4(paletteScore * 0.25 + traitScore * 0.75);
       photoSeasonBreakdown.push({
         seasonId,
         seasonName: SEASON_PROFILES[seasonId].name,
@@ -329,10 +358,10 @@ export function analyzePhotoColors(input: AnalyzePhotoColorsInput): PhotoAnalysi
     },
     debug: {
       featureFormulaNotes: [
-        'temperature = 피부 45% + 입술 25% + 머리 15% + 홍채 15%의 색온도 지수입니다.',
-        'clarity = 피부/입술/홍채/머리 HSL 채도 평균을 -1~1로 정규화한 값입니다. 낮을수록 뮤트에 가깝습니다.',
+        'temperature = 피부 45% + 입술 25% + 머리 15% + 홍채 15%의 Lab 색온도 지수입니다.',
+        'clarity = 피부/입술/홍채/머리 Lab chroma(C*) 가중합을 얼굴 대역(8~34)에서 -1~1로 정규화한 값입니다. 낮을수록 뮤트입니다.',
         'contrast = 얼굴 내부 대비 78% + 피부-머리 대비 22%입니다. 검은 머리만으로 겨울 고대비가 되지 않도록 머리 비중을 낮췄습니다.',
-        '사진 시즌 점수 = 팔레트 거리 42% + 특징 유사도 58%입니다. 저채도/저대비 사진은 겨울 고선명 시즌에 페널티가 들어갑니다.',
+        '사진 시즌 점수 = 팔레트 거리 25% + 특징 유사도 75%입니다(CIEDE2000). 겨울 페널티/소프트 보너스 등 도메인 보정은 제거됐습니다.',
       ],
       photoSeasonBreakdown,
     },
@@ -340,29 +369,48 @@ export function analyzePhotoColors(input: AnalyzePhotoColorsInput): PhotoAnalysi
 }
 
 // 사진 신호와 설문 신호를 하나의 최종 결과로 합칩니다.
-// photoQuality가 높을수록 사진 비중을 조금 올리고, 낮을수록 설문 비중을 유지해 조명/카메라 오류를 완화합니다.
+// 예전에는 사진/설문이 각각 12시즌 점수를 낸 뒤 스칼라 비율로 섞었지만(축별 강약을 못 살림),
+// 지금은 4축을 "축별 신뢰도"로 먼저 융합하고, 융합된 4축으로 12시즌을 한 번만 채점합니다.
+// 이렇게 하면 온도는 설문, 명도·대비는 사진처럼 축마다 잘하는 신호에 가중치를 줄 수 있습니다.
 export function fuseResults(
   photoData: PhotoAnalysisResult,
   questionnaireScores: QuestionnaireScores,
   rawResponses: Record<string, string>,
 ): FinalResult {
+  const photoAxes = photoData.measurementDetails.normalizedFeatures;
+  const qConfidence = questionnaireAxisConfidence(rawResponses);
+  // 사진 신뢰도는 사진 품질에 비례해 0.4~1.0배로 스케일합니다(품질이 낮으면 사진 축 신뢰도 전반이 내려감).
+  const photoTrust = 0.4 + 0.6 * clamp(photoData.photoQuality, 0, 1);
+
+  const fusedFeatures: QuestionnaireScores = { temperature: 0, lightness: 0, clarity: 0, contrast: 0 };
+  const axisFusion = {} as Record<keyof QuestionnaireScores, { photo: number; question: number }>;
+  let photoRelSum = 0;
+  let questionRelSum = 0;
+  AXES.forEach((axis) => {
+    const pRel = PHOTO_AXIS_RELIABILITY[axis] * photoTrust;
+    const qRel = QUESTION_AXIS_RELIABILITY[axis] * qConfidence[axis];
+    const denom = pRel + qRel;
+    fusedFeatures[axis] = denom > 0 ? (photoAxes[axis] * pRel + questionnaireScores[axis] * qRel) / denom : 0;
+    axisFusion[axis] = { photo: round4(pRel), question: round4(qRel) };
+    photoRelSum += pRel;
+    questionRelSum += qRel;
+  });
+
+  // 융합된 4축으로 12시즌 점수를 한 번만 계산합니다.
+  const fusedRaw = Object.fromEntries(
+    SEASON_ORDER.map((seasonId) => [seasonId, scoreSeasonTraits(fusedFeatures, seasonId, FUSED_TRAIT_WEIGHTS)]),
+  ) as Record<SeasonId, number>;
+  const fusedScores = normalizeSeasonScores(fusedRaw);
+
+  // 설문 단독 시즌 점수는 근거/디버그 표시용으로만 유지합니다(판정에는 위 융합 점수를 사용).
   const questionnaireRawScores = Object.fromEntries(
     SEASON_ORDER.map((seasonId) => [seasonId, scoreSeasonTraits(questionnaireScores, seasonId, QUESTION_TRAIT_WEIGHTS)]),
   ) as Record<SeasonId, number>;
   const questionnaireScoresNormalized = normalizeSeasonScores(questionnaireRawScores);
 
-  const photoWeight = round4(clamp(0.22 + photoData.photoQuality * 0.14, 0.22, 0.36));
+  const photoWeight = round4(photoRelSum / (photoRelSum + questionRelSum || 1));
   const questionnaireWeight = round4(1 - photoWeight);
 
-  const fusedRaw = Object.fromEntries(
-    SEASON_ORDER.map((seasonId) => {
-      const photoScore = photoData.seasonScores[seasonId] ?? 0;
-      const questionScore = questionnaireScoresNormalized[seasonId] ?? 0;
-      return [seasonId, photoScore * photoWeight + questionScore * questionnaireWeight];
-    }),
-  ) as Record<SeasonId, number>;
-
-  const fusedScores = normalizeSeasonScores(fusedRaw);
   const questionnaireSeasonScores = SEASON_ORDER.map((seasonId) => ({
     seasonId,
     seasonName: SEASON_PROFILES[seasonId].name,
@@ -444,6 +492,19 @@ export function fuseResults(
       questionnaireSeasonScores,
       fusedSeasonScores,
       rawResponses,
+      fusedFeatures: {
+        temperature: round4(fusedFeatures.temperature),
+        lightness: round4(fusedFeatures.lightness),
+        clarity: round4(fusedFeatures.clarity),
+        contrast: round4(fusedFeatures.contrast),
+      },
+      photoFeatures: {
+        temperature: round4(photoAxes.temperature),
+        lightness: round4(photoAxes.lightness),
+        clarity: round4(photoAxes.clarity),
+        contrast: round4(photoAxes.contrast),
+      },
+      axisReliability: axisFusion,
     },
   };
 }

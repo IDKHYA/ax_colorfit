@@ -123,6 +123,10 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
   const [countdown, setCountdown] = useState<number | null>(null);
   const [displayMetrics, setDisplayMetrics] = useState({ offsetX: 0, offsetY: 0, width: 0, height: 0, scale: 1 });
   const [streamOrientation, setStreamOrientation] = useState<'portrait' | 'landscape' | 'unknown'>('unknown');
+  // 프레임 비율을 실제 스트림 비율(videoWidth/videoHeight)에 맞춰, object-fit:cover가 화각을 잘라내지 않게 합니다.
+  const [streamAspect, setStreamAspect] = useState<number | null>(null);
+  // TODO(임시 디버그): 모바일에서 실제 스트림 해상도/방향을 눈으로 확인하기 위한 표시. 확인 끝나면 제거.
+  const [streamDebug, setStreamDebug] = useState<string>('');
   const [detectionStatus, setDetectionStatus] = useState('얼굴을 가이드 안에 맞춰주세요');
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [isPrepOpen, setIsPrepOpen] = useState(true);
@@ -446,8 +450,13 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
         videoRef.current.srcObject = stream;
         await waitForMetadata(videoRef.current);
         await videoRef.current.play().catch(() => undefined);
-        updateDisplayMetrics(videoRef.current.videoWidth, videoRef.current.videoHeight);
-        setStreamOrientation(videoRef.current.videoHeight >= videoRef.current.videoWidth ? 'portrait' : 'landscape');
+        const vw = videoRef.current.videoWidth;
+        const vh = videoRef.current.videoHeight;
+        updateDisplayMetrics(vw, vh);
+        setStreamOrientation(vh >= vw ? 'portrait' : 'landscape');
+        // 프레임 비율을 스트림 실제 비율에 맞춰, 세로폰에 가로 스트림이 와도 cover가 화각을 잘라내지 않게 합니다.
+        setStreamAspect(vw && vh ? vw / vh : null);
+        setStreamDebug(vw && vh ? `${vw}×${vh} ${vh >= vw ? '세로' : '가로'}` : '');
       }
       setCapturedImage(null);
       setError(null);
@@ -724,7 +733,7 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
             <button className="capture-exit-button" type="button" onClick={onExit}>진단 나가기</button>
           </header>
 
-          <section className="camera-stage photo-analyzer-stage">
+          <section className="camera-stage photo-analyzer-stage" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {error ? (
               <div className="camera-error-state">
                 <AlertCircle className="camera-error-icon" />
@@ -738,10 +747,33 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                 {cameraPermissionBlocked && <input ref={fallbackFileInputRef} type="file" accept="image/*" capture="user" hidden onChange={handleFallbackFileChange} />}
               </div>
             ) : (
-              <div ref={frameRef} className={'photo-camera-frame stream-' + streamOrientation}>
+              <div
+                ref={frameRef}
+                className={'photo-camera-frame stream-' + streamOrientation}
+                style={
+                  streamAspect
+                    ? {
+                        aspectRatio: String(streamAspect),
+                        height: 'auto',
+                        minHeight: 0,
+                        maxHeight: isMobileViewport() ? 'calc(100dvh - 200px)' : '70vh',
+                        width: '100%',
+                        margin: '0 auto',
+                      }
+                    : undefined
+                }
+              >
                 {!capturedImage ? (
                   <>
                     <video ref={videoRef} autoPlay playsInline muted className="photo-camera-media" />
+                    {streamDebug && (
+                      <div
+                        aria-hidden="true"
+                        style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 20, background: 'rgba(220,38,38,.85)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, pointerEvents: 'none' }}
+                      >
+                        DEBUG 스트림 {streamDebug}
+                      </div>
+                    )}
                     <canvas ref={overlayCanvasRef} className="sr-only" />
                     <div className={liveDetection ? 'capture-face-guide detected' : 'capture-face-guide'} aria-hidden="true" />
                     {liveDetection && (
