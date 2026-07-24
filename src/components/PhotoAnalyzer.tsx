@@ -127,6 +127,9 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
   const [streamAspect, setStreamAspect] = useState<number | null>(null);
   // TODO(임시 디버그): 모바일에서 실제 스트림 해상도/방향을 눈으로 확인하기 위한 표시. 확인 끝나면 제거.
   const [streamDebug, setStreamDebug] = useState<string>('');
+  // TODO(임시 진단): 이 기기 웹에서 어떤 제약에도 가로만 주는지 확정하는 프로브 결과. 확인 끝나면 제거.
+  const [probeResults, setProbeResults] = useState<string[]>([]);
+  const [probing, setProbing] = useState(false);
   const [detectionStatus, setDetectionStatus] = useState('얼굴을 가이드 안에 맞춰주세요');
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [isPrepOpen, setIsPrepOpen] = useState(true);
@@ -468,6 +471,40 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
     }
   };
 
+  // TODO(임시 진단): 여러 제약 조합을 순서대로 시도해 각각 어떤 해상도/방향 스트림을 주는지 측정합니다.
+  // 이 기기 웹에서 세로 스트림이 어떤 조합으로든 나오는지 확정하기 위한 용도. 확인 끝나면 제거.
+  const probeCameraOrientations = async () => {
+    if (probing) return;
+    setProbing(true);
+    setProbeResults(['프로브 실행 중…']);
+    stopCamera();
+    const variants: { label: string; c: MediaStreamConstraints }[] = [
+      { label: 'A 현재(720×1280+9:16)', c: { video: { facingMode: { ideal: 'user' }, width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 } } } },
+      { label: 'B facingMode만', c: { video: { facingMode: { ideal: 'user' } } } },
+      { label: 'C 큰세로(1080×1920)', c: { video: { facingMode: { ideal: 'user' }, width: { ideal: 1080 }, height: { ideal: 1920 } } } },
+      { label: 'D 비율만(9:16)', c: { video: { facingMode: { ideal: 'user' }, aspectRatio: { ideal: 9 / 16 } } } },
+    ];
+    const results: string[] = [];
+    for (const v of variants) {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia(v.c);
+        const st = s.getVideoTracks()[0]?.getSettings();
+        const w = Math.round(st?.width ?? 0);
+        const h = Math.round(st?.height ?? 0);
+        results.push(`${v.label}: ${w}×${h} ${w > h ? '가로' : w < h ? '세로' : '정사각'}`);
+        s.getTracks().forEach((t) => t.stop());
+      } catch (e) {
+        results.push(`${v.label}: 실패(${e instanceof Error ? e.name : 'err'})`);
+      }
+      setProbeResults([...results]);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    results.push('— 프로브 종료, 카메라 재시작 —');
+    setProbeResults([...results]);
+    setProbing(false);
+    void startCamera();
+  };
+
   // 사용자가 전후면 전환을 요청하면 기존 stream을 닫고 반대 facingMode로 다시 연결합니다.
   const switchCamera = () => {
     const nextFacingMode = cameraFacingModeRef.current === 'user' ? 'environment' : 'user';
@@ -772,6 +809,21 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                         style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 20, background: 'rgba(220,38,38,.85)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, pointerEvents: 'none' }}
                       >
                         DEBUG 스트림 {streamDebug}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={probeCameraOrientations}
+                      disabled={probing}
+                      style={{ position: 'absolute', top: 8, right: 8, zIndex: 21, background: 'rgba(37,99,235,.9)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, border: 'none' }}
+                    >
+                      {probing ? '프로브 중…' : '방향 프로브'}
+                    </button>
+                    {probeResults.length > 0 && (
+                      <div
+                        style={{ position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 21, background: 'rgba(0,0,0,.78)', color: '#fff', fontSize: 11, lineHeight: 1.5, padding: '8px 10px', borderRadius: 8, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}
+                      >
+                        {probeResults.join('\n')}
                       </div>
                     )}
                     <canvas ref={overlayCanvasRef} className="sr-only" />
