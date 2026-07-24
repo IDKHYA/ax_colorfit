@@ -399,12 +399,14 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
   };
 
   // 카메라 요청 조건을 한 곳에서 만듭니다. deviceId가 있으면 특정 카메라를, 없으면 현재 전후면 모드를 사용합니다.
+  // 해상도를 과하게 강제하면(특히 9:16) 세로 모드가 없는 기기가 가로로 폴백합니다(프로브로 확인).
+  // 그래서 기기의 세로 모드(대개 3:4)에 맞춰 완만하게만 요청하고, 그래도 가로가 오면
+  // startCamera에서 무제약으로 재요청해 세로를 확보합니다.
   const buildCameraConstraints = (facingMode: 'user' | 'environment', deviceId?: string | null): MediaStreamConstraints => ({
     video: {
       ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: facingMode } }),
-      width: { ideal: 720 },
+      width: { ideal: 960 },
       height: { ideal: 1280 },
-      aspectRatio: { ideal: 9 / 16 },
     },
   });
 
@@ -434,6 +436,19 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
           }
         }
         if (isMobileViewport()) await applyLowestSupportedZoom(stream);
+
+        // 세로 화면인데 가로 스트림이 오면, 무제약으로 재요청해 기기 기본 세로 스트림을 확보합니다.
+        // (프로브 확인: 이 기기는 해상도/비율을 강제하지 않으면 세로를 줍니다.)
+        if (isMobileViewport() && facingMode === 'user') {
+          const settings = stream.getVideoTracks()[0]?.getSettings();
+          const w = settings?.width ?? 0;
+          const h = settings?.height ?? 0;
+          if (w && h && w >= h) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facingMode } } });
+            await applyLowestSupportedZoom(stream);
+          }
+        }
       } catch (constraintError) {
         if (constraintError instanceof DOMException && constraintError.name === 'OverconstrainedError') {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -788,7 +803,9 @@ export default function PhotoAnalyzer({ onAnalysisComplete, onExit }: PhotoAnaly
                 ref={frameRef}
                 className={'photo-camera-frame stream-' + streamOrientation}
                 style={
-                  streamAspect
+                  // 모바일에서 세로 스트림(≈3:4 이하)이면 화면을 꽉 채웁니다(CSS 풀높이 cover → 네이티브 셀피).
+                  // 가로 스트림/데스크톱이면 프레임을 스트림 비율에 맞춰 전체 화각을 보여줍니다(오버크롭 방지).
+                  streamAspect && !(isMobileViewport() && streamAspect < 0.85)
                     ? {
                         aspectRatio: String(streamAspect),
                         height: 'auto',
